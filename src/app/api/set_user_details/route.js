@@ -259,8 +259,8 @@ export async function POST(request) {
         }
 
         existingItem = result.Item;
-    } catch {
-        return Response.json({ error: "Failed to fetch user record." }, { status: 500 });
+    } catch (err) {
+        return Response.json({ error: `${err}` }, { status: 500 });
     }
 
     // 8. One-time update guard — if ANY of the 3 fields is already set, reject entirely.
