@@ -48,7 +48,8 @@ export async function POST(req) {
         //     })
         // );
 
-
+        console.log("Region:", process.env.MY_AWS_REGION);
+        console.log("Key:", process.env.MY_AWS_ACCESS_KEY);
         await dynamo.send(
             new PutItemCommand({
                 TableName: "josaa_users_db",
