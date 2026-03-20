@@ -68,6 +68,10 @@ export async function POST(request) {
     // 4. Fetch user record from DynamoDB
     let item;
     try {
+        console.log("TABLE:", TABLE_NAME);
+        console.log("fb_uid:", fbUid);
+
+
         const result = await dynamo.send(
             new GetItemCommand({
                 TableName: TABLE_NAME,
@@ -75,12 +79,15 @@ export async function POST(request) {
             })
         );
 
+        console.log("DynamoDB result:", JSON.stringify(result));
+
         if (!result.Item) {
             return Response.json({ error: "User record not found." }, { status: 404 });
         }
 
         item = result.Item;
     } catch {
+        console.log("DynamoDB error:", err)
         return Response.json({ error: "Failed to fetch user record." }, { status: 500 });
     }
 
