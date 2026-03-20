@@ -68,8 +68,8 @@ export async function POST(request) {
     // 4. Fetch user record from DynamoDB
     let item;
     try {
-        console.log("TABLE:", TABLE_NAME);
-        console.log("fb_uid:", fbUid);
+        // console.log("TABLE:", TABLE_NAME);
+        // console.log("fb_uid:", fbUid);
 
 
         const result = await dynamo.send(
@@ -86,8 +86,8 @@ export async function POST(request) {
         }
 
         item = result.Item;
-    } catch {
-        console.log("DynamoDB error:", err)
+    } catch (err) {
+        // console.log("DynamoDB error:", err)
         return Response.json({ error: "Failed to fetch user record." }, { status: 500 });
     }
 
