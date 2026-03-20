@@ -110,10 +110,10 @@ function getFirebaseAdmin() {
 
 // ─── DynamoDB client (singleton) ─────────────────────────────────────────────
 const dynamo = new DynamoDBClient({
-    region: process.env.AWS_REGION,
+    region: process.env.MY_AWS_REGION,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY,
-        secretAccessKey: process.env.AWS_SECRET_KEY,
+        accessKeyId: process.env.MY_AWS_ACCESS_KEY,
+        secretAccessKey: process.env.MY_AWS_SECRET_KEY,
     },
 });
 
