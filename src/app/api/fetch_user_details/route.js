@@ -88,7 +88,7 @@ export async function POST(request) {
         item = result.Item;
     } catch (err) {
         // console.log("DynamoDB error:", err)
-        return Response.json({ error: "Failed to fetch user record." }, { status: 500 });
+        return Response.json({ error: "Failed to fetch user record" }, { status: 500 });
     }
 
     // 5. Unwrap DynamoDB types → plain values
