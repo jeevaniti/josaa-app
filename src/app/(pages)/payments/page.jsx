@@ -561,7 +561,7 @@ export default function PaymentsPage() {
         handler: function () {
           // Called on successful payment capture
           // router.push("/payment-success");
-          router.push("/dashboard");
+          router.push("/set-user-rank");
         },
         modal: {
           ondismiss: function () {
