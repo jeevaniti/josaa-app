@@ -1,11 +1,6 @@
 
 // This API will receive JSON body in the below format,
 
-//     fb_token: "", // firebase token
-//    home_state: { S: "" },
-//     gender: { S: "" },
-//     category: { S: "" },
-
 
 /*
 
