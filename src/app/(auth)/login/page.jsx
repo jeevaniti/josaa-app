@@ -62,12 +62,12 @@ const styles = `
 
   .auth-brand-icon {
     width: 38px; height: 38px;
-    background: white;
+    background: black;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     font-family: 'Instrument Serif', Georgia, serif;
     font-weight: 900; font-size: 15px; font-style: italic;
-    color: #0F172A; flex-shrink: 0;
+    color: #ffffffff; flex-shrink: 0;
   }
 
   .auth-brand-name { font-size: 17px; font-weight: 800; color: white; letter-spacing: -0.01em; }

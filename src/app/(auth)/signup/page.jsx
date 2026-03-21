@@ -66,14 +66,14 @@ const styles = `
 
   .auth-brand-icon {
     width: 38px; height: 38px;
-    background: white;
+    background: black;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     font-family: 'Instrument Serif', Georgia, serif;
     font-weight: 900;
     font-size: 15px;
     font-style: italic;
-    color: #0F172A;
+    color: #ffffffff;
     flex-shrink: 0;
   }
 
