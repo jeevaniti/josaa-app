@@ -1338,7 +1338,7 @@ export default function SetRankPage() {
         <h1 className="sr-title">Set Rank</h1>
 
         <div className="sr-warning-normal">
-          <span style={{ fontWeight: 600, color: "#3b3b3bff" }}>We introduced Test Rank. Use it before Before Your Counselling Starts.</span>
+          <span style={{ fontWeight: 600, color: "#3b3b3bff" }}>Use Test Rank before Before Your Counselling Starts.</span>
         </div>
 
         {fetchError && (
