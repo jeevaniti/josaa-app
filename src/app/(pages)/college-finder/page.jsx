@@ -109,19 +109,16 @@ const styles = `
     display: flex;
     align-items: center;
     gap: 10px;
-    background: #fffbeb;
-    border: 1px solid #fcd34d;
-    border-left: 3px solid #f59e0b;
+    background: #e0e0e0ff;
     border-radius: 6px;
     padding: 10px 14px;
     margin-bottom: 20px;
     font-size: 12.5px;
-    font-weight: 500;
-    color: #78350f;
+    font-weight: 600;
+    color: #4e3120ff;
     font-family: 'DM Sans', sans-serif;
   }
 
-  .fc-warn-banner svg { flex-shrink: 0; color: #f59e0b; }
 
   .fc-form-card {
     background: #ffffff;
@@ -368,10 +365,10 @@ const styles = `
 
   .fc-filter-group-label {
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #cbd5e1;
+    color: #000000ff;
     margin-bottom: 9px;
     font-family: 'DM Mono', monospace;
   }
@@ -411,7 +408,6 @@ const styles = `
     gap: 12px;
     padding: 12px 20px;
     border-bottom: 1px solid #f1f5f9;
-    background: #fafafa;
     flex-wrap: wrap;
   }
 
@@ -525,11 +521,10 @@ const styles = `
     grid-template-columns: 2fr 2fr 100px 100px 36px;
     padding: 9px 20px;
     border-bottom: 1px solid #f1f5f9;
-    background: #fafafa;
   }
 
   .fc-th {
-    font-size: 9.5px;
+    font-size: 11.5px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.09em;
@@ -548,21 +543,11 @@ const styles = `
     transition: background 0.1s ease;
   }
 
-  .fc-result-row:hover .fc-result-main { background: #fafafa; }
+  .fc-result-row:hover .fc-result-main { background: #fdfdfdff; }
 
   .fc-college-cell { display: flex; align-items: center; gap: 10px; }
 
-  .fc-college-icon {
-    width: 28px; height: 28px;
-    border-radius: 7px;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    color: #64748b;
-  }
+  
 
   .fc-college-name {
     font-size: 13px;
@@ -895,7 +880,7 @@ const LockIcon = () => (
 
 const CollegeIcon = ({ isIIT }) => (
   <div className="fc-college-icon">
-    {isIIT ? (
+    {/* {isIIT ? (
       <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round"
           d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -906,7 +891,7 @@ const CollegeIcon = ({ isIIT }) => (
         <path strokeLinecap="round"
           d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055" />
       </svg>
-    )}
+    )} */}
   </div>
 );
 
@@ -1083,7 +1068,7 @@ export default function FindCollegePage() {
   const d = userDetails || {};
 
   const rankFields = {
-    TEST: [{ label: "Test Mains CRL", value: d.test_mains_crl }],
+    TEST: [{ label: "Test Mains CRL (estimated only)", value: d.test_mains_crl }],
     JOSAA: [
       { label: "Mains CRL Rank", value: d.crl_mains_rank },
       { label: "Mains Category Rank", value: d.category_mains_rank },
@@ -1111,13 +1096,7 @@ export default function FindCollegePage() {
 
         <h1 className="fc-title">Find Your Colleges</h1>
 
-        {/* ── Permanent warning ── */}
-        <div className="fc-warn-banner">
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          </svg>
-          After Filtering the Options . Hit GENERATE !!
-        </div>
+
 
         {/* ── Overview table ── */}
         {detailsLoading ? (
@@ -1146,7 +1125,6 @@ export default function FindCollegePage() {
         <div className="fc-form-card">
 
           {/* ── Counselling type ── */}
-          <p className="fc-section-label">Choose your counselling type</p>
           <div className="fc-mode-row">
             {[
               { key: "TEST", locked: !testUnlocked },
@@ -1208,6 +1186,13 @@ export default function FindCollegePage() {
           </div>
         )}
 
+        {/* ── Permanent warning ── */}
+        <div className="fc-warn-banner">
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          Don't forget to HIT Generate after Choosing Options
+        </div>
         {/* ── Empty state ── */}
         {!results && !loading && !apiError && (
           <div className="fc-results">
@@ -1223,13 +1208,15 @@ export default function FindCollegePage() {
           </div>
         )}
 
+
+
         {/* ── Filters + Results (only visible after Generate is hit) ── */}
         {(results !== null || loading) && (
           <>
             {/* Filters card */}
             <div className="fc-filters-card">
               <div className="fc-filter-header" onClick={() => setFilterOpen(o => !o)}>
-                <p className="fc-filter-title">Filters</p>
+                {/* <p className="fc-filter-title">Filters</p> */}
                 <button
                   className={`fc-filter-toggle-btn${filterOpen ? " open" : ""}`}
                   aria-label={filterOpen ? "Collapse filters" : "Expand filters"}
@@ -1302,7 +1289,7 @@ export default function FindCollegePage() {
             {/* Results card */}
             <div className="fc-results">
               <div className="fc-results-header">
-                <span className="fc-results-title">College Name &nbsp;/&nbsp; Branch Name</span>
+                {/* <span className="fc-results-title">College Name &nbsp;/&nbsp; Branch Name</span> */}
                 {results && (
                   <span className="fc-results-count">
                     {results.length} result{results.length !== 1 ? "s" : ""}
@@ -1314,7 +1301,7 @@ export default function FindCollegePage() {
               {results && (
                 <div className="fc-round-bar">
                   <div className="fc-round-bar-left">
-                    <span className="fc-round-label">Round</span>
+                    {/* <span className="fc-round-label">Round</span> */}
                     <div className="fc-round-btns">
                       {roundOptions.map(r => (
                         <button
@@ -1390,14 +1377,13 @@ export default function FindCollegePage() {
                         <div className="fc-result-main">
 
                           <div className="fc-college-cell">
-                            <CollegeIcon isIIT={isIIT} />
                             <span className="fc-college-name">{r.college_name}</span>
                           </div>
 
                           <div className="fc-branch-name">{r.branch}</div>
 
                           <div className="fc-quota-cell">
-                            <span style={{ fontSize: 11, fontWeight: 600, color: '#475569', fontFamily: "'DM Mono', monospace" }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: '#272c33ff', fontFamily: "'DM Mono', monospace" }}>
                               {r.category ?? '—'}
                             </span>
                           </div>

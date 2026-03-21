@@ -1,23 +1,3 @@
-//    fb_uid: { S: fb_uid },
-//                     user_email: { S: user_email },
-
-
-//                     josaa_credit: { BOOL: false },
-//                     csab_credit: { BOOL: false },
-
-//                     home_state: { S: "" },
-//                     gender: { S: "" },
-//                     category: { S: "" },
-
-//                     test_mains_crl: { N: "0" },
-
-//                     category_mains_rank: { N: "0" },
-//                     crl_mains_rank: { N: "0" },
-
-//                     category_adv_rank: { N: "0" },
-//                     crl_adv_rank: { N: "0" }
-
-
 // src/app/api/fetch_user_details/route.js
 import { GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { dynamo } from "@/lib/dynamo";
@@ -56,39 +36,55 @@ export async function POST(request) {
     // 3. Verify Firebase JWT → extract fb_uid
     let fbUid;
     try {
-        const decoded = await admin.auth().verifyIdToken(rawJwt);
-        fbUid = decoded.uid;
-        if (!fbUid || typeof fbUid !== "string" || fbUid.trim().length === 0) {
-            throw new Error("UID missing from token.");
-        }
-    } catch {
-        return Response.json({ error: "Invalid or expired Firebase token." }, { status: 401 });
+        // checkRevoked: true ensures the token hasn't been revoked server-side
+        const decoded = await admin.auth().verifyIdToken(rawJwt, /* checkRevoked= */ true);
+        fbUid = decoded.uid?.trim();
+        if (!fbUid) throw new Error("UID missing from token.");
+    } catch (err) {
+        // Surface the real Firebase error in dev so you can diagnose it
+        // const msg = process.env.NODE_ENV === "development"
+        //     ? `Invalid or expired Firebase token: ${err.message}`
+        //     : "Invalid or expired Firebase token.";
+        return Response.json({ error: err }, { status: 401 });
     }
 
     // 4. Fetch user record from DynamoDB
     let item;
     try {
-        // console.log("TABLE:", TABLE_NAME);
-        // console.log("fb_uid:", fbUid);
+        // ── Defensive guards ──────────────────────────────────────────────────────
+        if (!TABLE_NAME) {
+            console.error("DYNAMODB_TABLE_NAME env var is not set.");
+            return Response.json({ error: "Server misconfiguration." }, { status: 500 });
+        }
 
+        // Log in all envs so you can see what's being queried
+        // console.log("[fetch_user_details] TABLE:", TABLE_NAME, "| fb_uid:", fbUid);
 
         const result = await dynamo.send(
             new GetItemCommand({
                 TableName: TABLE_NAME,
+                // ── KEY FIX: trim again just in case; any whitespace = miss ──────────
                 Key: { fb_uid: { S: fbUid } },
             })
         );
 
-        console.log("DynamoDB result:", JSON.stringify(result));
+        // console.log("[fetch_user_details] DynamoDB Item found:", !!result.Item);
 
         if (!result.Item) {
-            return Response.json({ error: "User record not found." }, { status: 404 });
+            // Return the uid in dev so you can cross-check with DynamoDB console
+            const devHint = process.env.NODE_ENV === "development"
+                ? ` (queried uid: "${fbUid}", table: "${TABLE_NAME}")`
+                : "";
+            return Response.json(
+                { error: `User record not found.${devHint}` },
+                { status: 404 }
+            );
         }
 
         item = result.Item;
     } catch (err) {
-        // console.log("DynamoDB error:", err)
-        return Response.json({ error: "Failed to fetch user record" }, { status: 500 });
+        // console.error("[fetch_user_details] DynamoDB error:", err);
+        return Response.json({ error: "Failed to fetch user record." }, { status: 500 });
     }
 
     // 5. Unwrap DynamoDB types → plain values

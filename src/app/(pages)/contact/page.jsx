@@ -3,30 +3,30 @@
 import { useState } from "react";
 
 const FAQ_ITEMS = [
-    {
-        q: "How is the chance prediction calculated?",
-        a: "Chance predictions are based on historical JOSAA closing rank data across all rounds (R1–R6). We compare your rank with past year closing ranks for your category and flag colleges as High, Moderate, or Low chance accordingly.",
-    },
-    {
-        q: "What is the difference between JOSAA and CSAB?",
-        a: "JOSAA (Joint Seat Allocation Authority) handles admissions to IITs, NITs, IIITs, and other GFTIs. CSAB (Central Seat Allocation Board) conducts special rounds after JOSAA to fill remaining seats in NITs, IIITs, and GFTIs.",
-    },
-    {
-        q: "Why do I need to set ranks separately for JOSAA and CSAB?",
-        a: "JOSAA and CSAB use separate seat matrices and cut-offs. Setting ranks separately allows you to get accurate results for both counselling processes.",
-    },
-    {
-        q: "Can I change my saved rank after setting it?",
-        a: "Yes. Go to Set Rank, clear your existing rank using the Clear button, then enter the updated value. You can do this as many times as needed.",
-    },
-    {
-        q: "What does Gender-Neutral vs Female-only mean?",
-        a: "These are seat pool categories defined by JOSAA. Female-only (including Supernumerary) seats are reserved for female candidates. Selecting the correct pool ensures you see accurate closing rank data for your eligibility.",
-    },
-    {
-        q: "Is the data updated for the current year?",
-        a: "We update our dataset after each JOSAA round concludes. Please check the Find Colleges page for the latest data update notice.",
-    },
+  {
+    q: "How is the chance prediction calculated?",
+    a: "Chance predictions are based on historical JOSAA closing rank data across all rounds (R1–R6). We compare your rank with past year closing ranks for your category and flag colleges as High, Moderate, or Low chance accordingly.",
+  },
+  {
+    q: "What is the difference between JOSAA and CSAB?",
+    a: "JOSAA (Joint Seat Allocation Authority) handles admissions to IITs, NITs, IIITs, and other GFTIs. CSAB (Central Seat Allocation Board) conducts special rounds after JOSAA to fill remaining seats in NITs, IIITs, and GFTIs.",
+  },
+  {
+    q: "Can I change my saved rank after setting it?",
+    a: "No",
+  },
+  {
+    q: "What does Gender-Neutral vs Female-only mean?",
+    a: "These are seat pool categories defined by JOSAA. Female-only (including Supernumerary) seats are reserved for female candidates",
+  },
+  {
+    q: "Is the data updated for the 2026",
+    a: "Yes, We update our dataset after each JOSAA round concludes",
+  },
+  {
+    q: "Is there Refund Policy",
+    a: "No, As Our pricing is already significantly very much lower than other paid counselling services.",
+  }
 ];
 
 const styles = `
@@ -107,12 +107,17 @@ const styles = `
     font-size: 13px;
     font-weight: 700;
     color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    word-break: break-all;
   }
 
   .hs-contact-sub {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--color-text-muted);
-    font-weight: 500;
+    font-weight: 600;
   }
 
   /* Section heading */
@@ -281,6 +286,21 @@ const styles = `
     box-shadow: none;
   }
 
+  .hs-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    line-height: 1;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   .hs-toast {
     display: flex;
     align-items: center;
@@ -311,130 +331,88 @@ const styles = `
 
     .hs-form-footer { justify-content: stretch; }
     .hs-btn-submit  { width: 100%; justify-content: center; }
+
+    .hs-contact-value {
+      font-size: 12px;
+    }
+
+    .hs-copy-btn {
+      padding: 6px;
+      min-width: 32px;
+      min-height: 32px;
+    }
   }
 `;
 
 export default function HelpSupportPage() {
-    const [openFaq, setOpenFaq] = useState(null);
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [message, setMessage] = useState("");
-    const [submitted, setSubmitted] = useState(false);
+  const [openFaq, setOpenFaq] = useState(null);
+  const [copied, setCopied] = useState(false);
 
-    function handleSubmit() {
-        if (!name || !email || !message) return;
-        setSubmitted(true);
-        setName(""); setEmail(""); setMessage("");
-        setTimeout(() => setSubmitted(false), 4000);
-    }
+  const handleCopy = () => {
+    navigator.clipboard.writeText("support@josaamaster.in");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-    return (
-        <>
-            <style>{styles}</style>
-            <div className="hs-root">
+  return (
+    <>
+      <style>{styles}</style>
+      <div className="hs-root">
 
-                <p className="hs-eyebrow">Support</p>
-                <h1 className="hs-title">Help and Support</h1>
-                <p className="hs-subtitle">Find answers to common questions or reach out directly. We are here to help you navigate your counselling journey.</p>
+        <h1 className="hs-title">Help and Support</h1>
 
-                {/* Contact options */}
-                <div className="hs-contact-grid">
-                    <div className="hs-contact-card">
-                        <div className="hs-contact-icon icon-bg-blue">
-                            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="hs-contact-type">Email</p>
-                            <p className="hs-contact-value">support@josaamaster.in</p>
-                            <p className="hs-contact-sub">Reply within 24 hours</p>
-                        </div>
-                    </div>
-
-                    <div className="hs-contact-card">
-                        <div className="hs-contact-icon icon-bg-green">
-                            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="hs-contact-type">Live Chat</p>
-                            <p className="hs-contact-value">Chat with us</p>
-                            <p className="hs-contact-sub">Mon – Sat, 10am – 6pm IST</p>
-                        </div>
-                    </div>
-
-                    <div className="hs-contact-card">
-                        <div className="hs-contact-icon icon-bg-purple">
-                            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 16h6M13 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9l-6-5z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="hs-contact-type">Documentation</p>
-                            <p className="hs-contact-value">Read the Docs</p>
-                            <p className="hs-contact-sub">Guides and tutorials</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* FAQ */}
-                <p className="hs-section-title">Frequently Asked Questions</p>
-                <div className="hs-faq-list">
-                    {FAQ_ITEMS.map((item, i) => (
-                        <div key={i} className="hs-faq-item">
-                            <button className="hs-faq-trigger" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
-                                <span className="hs-faq-q">{item.q}</span>
-                                <span className={`hs-faq-chevron${openFaq === i ? " open" : ""}`}>
-                                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </span>
-                            </button>
-                            {openFaq === i && <div className="hs-faq-body">{item.a}</div>}
-                        </div>
-                    ))}
-                </div>
-
-                {/* Contact form */}
-                <p className="hs-section-title">Send Us a Message</p>
-                <div className="hs-form-card">
-                    <div className="hs-form-grid">
-                        <div className="hs-field">
-                            <label className="hs-label">Your Name</label>
-                            <input className="hs-input" type="text" placeholder="Full name" value={name} onChange={e => setName(e.target.value)} />
-                        </div>
-                        <div className="hs-field">
-                            <label className="hs-label">Email Address</label>
-                            <input className="hs-input" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
-                        </div>
-                        <div className="hs-field full">
-                            <label className="hs-label">Message</label>
-                            <textarea className="hs-textarea" placeholder="Describe your issue or question..." value={message} onChange={e => setMessage(e.target.value)} />
-                        </div>
-                    </div>
-
-                    <div className="hs-form-footer">
-                        <button className="hs-btn-submit" onClick={handleSubmit} disabled={!name || !email || !message}>
-                            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" />
-                            </svg>
-                            Send Message
-                        </button>
-                    </div>
-
-                    {submitted && (
-                        <div className="hs-toast">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                            Message sent. We will get back to you shortly.
-                        </div>
-                    )}
-                </div>
-
+        {/* Contact options */}
+        <div className="hs-contact-grid">
+          <div className="hs-contact-card">
+            <div className="hs-contact-icon">
+              <svg width="30" height="30" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
             </div>
-        </>
-    );
+
+            <div>
+              <p className="hs-contact-value">
+                support@josaamaster.in
+                <button
+                  onClick={handleCopy}
+                  title="Copy email"
+                  className="hs-copy-btn"
+                >
+                  {copied ? (
+                    <svg width="18" height="18" fill="none" stroke="green" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                    </svg>
+                  )}
+                </button>
+              </p>
+              <p className="hs-contact-sub">Reply within 30 Minutes</p>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="hs-faq-list">
+          {FAQ_ITEMS.map((item, i) => (
+            <div key={i} className="hs-faq-item">
+              <button className="hs-faq-trigger" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                <span className="hs-faq-q">{item.q}</span>
+                <span className={`hs-faq-chevron${openFaq === i ? " open" : ""}`}>
+                  <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
+              </button>
+              {openFaq === i && <div className="hs-faq-body">{item.a}</div>}
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </>
+  );
 }

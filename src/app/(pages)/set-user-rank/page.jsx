@@ -3,8 +3,65 @@
 
 import { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase";
+import Link from "next/link";
 
 const styles = `
+  /* ── Quick Actions Bar ── */
+  .sr-quick-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 28px;
+    border-bottom: 1px solid var(--color-border);
+    background: #f8fafc;
+    flex-wrap: wrap;
+  }
+
+  .sr-quick-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
+    margin-right: 4px;
+    white-space: nowrap;
+  }
+
+  .sr-quick-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: white;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .sr-quick-link:hover {
+    background: #eff6ff;
+    border-color: var(--color-blue);
+    color: var(--color-blue);
+  }
+
+  .sr-quick-link.primary {
+    background: var(--color-blue);
+    color: white;
+    border-color: var(--color-blue);
+    box-shadow: 0 2px 6px rgba(37,99,235,0.18);
+  }
+
+  .sr-quick-link.primary:hover {
+    background: var(--color-blue-dark);
+    border-color: var(--color-blue-dark);
+    color: white;
+  }
+
   /* Warning bar — no close, always visible */
   .sr-warning {
     padding: 11px 28px;
@@ -731,6 +788,21 @@ const styles = `
   }
 
   @media (max-width: 768px) {
+    .sr-quick-actions {
+      padding: 10px 16px;
+      gap: 6px;
+    }
+
+    .sr-quick-label {
+      width: 100%;
+      margin-bottom: 2px;
+    }
+
+    .sr-quick-link {
+      font-size: 11px;
+      padding: 5px 10px;
+    }
+
     .sr-warning { padding: 11px 16px; }
     .sr-warning-normal { padding: 11px 16px; }
     .sr-body    { padding: 20px 16px; }
@@ -813,7 +885,7 @@ const CATEGORIES = [
 async function getJWT() {
   const user = auth.currentUser;
   if (!user) throw new Error("Not authenticated");
-  return user.getIdToken();
+  return user.getIdToken(/* forceRefresh= */ true); // ← always get a fresh token
 }
 
 function PencilIcon() {
@@ -830,7 +902,7 @@ export default function SetRankPage() {
   const [fetchError, setFetchError] = useState(null);
 
   // Dialog state
-  const [dialog, setDialog] = useState(null); // { type: 'rankSection1' | 'rankSection2' | 'rankSection3' | 'studentDetails' }
+  const [dialog, setDialog] = useState(null);
   const [dialogSubmitting, setDialogSubmitting] = useState(false);
   const [dialogError, setDialogError] = useState(null);
   const [dialogSuccess, setDialogSuccess] = useState(false);
@@ -851,14 +923,28 @@ export default function SetRankPage() {
     setLoading(true);
     setFetchError(null);
     try {
+      // Wait for auth to be ready before grabbing the token
+      await new Promise((resolve, reject) => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+          unsubscribe();
+          if (user) resolve(user);
+          else reject(new Error("Not authenticated"));
+        });
+      });
+
       const jwt = await getJWT();
       const res = await fetch("/api/fetch_user_details", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jwt }),
       });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || `Server error: ${res.status}`);
+      }
+
       setUserDetails(data);
     } catch (err) {
       setFetchError(err.message || "Failed to fetch user details.");
@@ -877,14 +963,12 @@ export default function SetRankPage() {
     return { text: num.toLocaleString("en-IN"), empty: false };
   }
 
-  // true only for exact "OPEN" — OPEN (PwD) still needs category rank
   const isGeneral = () => userDetails?.category === "OPEN";
 
-  // true if student details are fully set
   const detailsSet = () =>
     !!(userDetails?.home_state && userDetails?.gender && userDetails?.category);
 
-  // ── Parsed values — API returns plain JS types, no DynamoDB wrappers ──
+  // ── Parsed values ──
   const josaa_credit = userDetails?.josaa_credits ?? false;
   const csab_credit = userDetails?.csab_credits ?? false;
   const test_mains_crl = userDetails?.test_mains_crl ?? 0;
@@ -898,7 +982,6 @@ export default function SetRankPage() {
     setDialog(type);
     setDialogError(null);
     setDialogSuccess(false);
-    // Pre-fill student details
     if (type === "studentDetails") {
       setInputHomeState(userDetails?.home_state || "");
       setInputGender(userDetails?.gender || "");
@@ -1019,11 +1102,11 @@ export default function SetRankPage() {
     }
     const payload = { type: "ADVANCED" };
     const crl = parseInt(inputCrlAdv, 10);
-    if (isNaN(crl) || crl < 1 || crl > 300000) { setDialogError("Enter a valid CRL Advanced rank (1 – 3,00,000)."); return; }
+    if (isNaN(crl) || crl < 1 || crl > 100000) { setDialogError("Enter a valid CRL Advanced rank (1 – 1,00,000)."); return; }
     payload.crl_adv_rank = crl;
     if (needsBoth) {
       const cat = parseInt(inputCategoryAdv, 10);
-      if (isNaN(cat) || cat < 1 || cat > 300000) { setDialogError("Enter a valid Category Advanced rank (1 – 3,00,000)."); return; }
+      if (isNaN(cat) || cat < 1 || cat > 100000) { setDialogError("Enter a valid Category Advanced rank (1 – 1,00,000)."); return; }
       payload.category_adv_rank = cat;
     }
     callSetRankAPI(payload);
@@ -1043,9 +1126,9 @@ export default function SetRankPage() {
           <div className="sr-dialog">
             <div className="sr-dialog-header">
               <span className="sr-dialog-title">
-                {dialog === "section1" && "Set Test Rank — JEE Mains (JOSAA)"}
-                {dialog === "section2" && "Set Actual Ranks — JEE Mains"}
-                {dialog === "section3" && "Set Actual Ranks — JEE Advanced"}
+                {dialog === "section1" && "Set Test Rank"}
+                {dialog === "section2" && "JEE Mains"}
+                {dialog === "section3" && "JEE Advanced"}
                 {dialog === "studentDetails" && "Set Student Details"}
               </span>
               <button className="sr-dialog-close" onClick={closeDialog}>
@@ -1056,27 +1139,25 @@ export default function SetRankPage() {
             </div>
 
             <div className="sr-dialog-body">
-              {/* Warning */}
               {dialog !== "studentDetails" && (
                 <div className="sr-dialog-warn">
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
-                  Warning: You cannot edit your rank after it has been set. Please double-check before confirming.
+                  Warning: You cannot edit your rank after it has been set. Please double check before confirming.
                 </div>
               )}
 
-              {/* Section 1 — Test Rank */}
               {dialog === "section1" && (
                 <div className="sr-dialog-field-group">
                   <div className="sr-dialog-field">
-                    <label className="sr-dialog-field-label">JEE Mains — Test Rank (JOSAA)</label>
+                    <label className="sr-dialog-field-label">JEE Mains — Test Rank</label>
                     <input
                       className="sr-input"
                       type="number"
                       inputMode="numeric"
-                      min="1" max="2000000"
-                      placeholder="Enter your test rank (1 – 20,00,000)"
+                      min="1" max="1000000"
+                      placeholder="Enter Estimated CRL rank"
                       value={inputTestRank}
                       onChange={(e) => { setInputTestRank(e.target.value); setDialogError(null); }}
                       disabled={dialogSubmitting || dialogSuccess}
@@ -1086,17 +1167,15 @@ export default function SetRankPage() {
                 </div>
               )}
 
-              {/* Section 2 — CRL Mains + Category Mains */}
               {dialog === "section2" && (
                 <div className="sr-dialog-field-group">
                   <div className="sr-dialog-field">
-                    <label className="sr-dialog-field-label">JEE Mains — CRL Rank (JOSAA & CSAB)</label>
                     <input
                       className="sr-input"
                       type="number"
                       inputMode="numeric"
-                      min="1" max="2000000"
-                      placeholder="Enter CRL rank (1 – 20,00,000)"
+                      min="1" max="1000000"
+                      placeholder="CRL Rank"
                       value={inputCrlMains}
                       onChange={(e) => { setInputCrlMains(e.target.value); setDialogError(null); }}
                       disabled={dialogSubmitting || dialogSuccess || crl_mains_rank !== 0}
@@ -1106,13 +1185,12 @@ export default function SetRankPage() {
                   </div>
                   {!isGeneral() && (
                     <div className="sr-dialog-field">
-                      <label className="sr-dialog-field-label">JEE Mains — Category Rank (JOSAA & CSAB)</label>
                       <input
                         className="sr-input"
                         type="number"
                         inputMode="numeric"
-                        min="1" max="2000000"
-                        placeholder="Enter category rank (1 – 20,00,000)"
+                        min="1" max="1000000"
+                        placeholder="Category Rank"
                         value={inputCategoryMains}
                         onChange={(e) => { setInputCategoryMains(e.target.value); setDialogError(null); }}
                         disabled={dialogSubmitting || dialogSuccess || category_mains_rank !== 0}
@@ -1124,17 +1202,15 @@ export default function SetRankPage() {
                 </div>
               )}
 
-              {/* Section 3 — CRL Adv + Category Adv */}
               {dialog === "section3" && (
                 <div className="sr-dialog-field-group">
                   <div className="sr-dialog-field">
-                    <label className="sr-dialog-field-label">JEE Advanced — CRL Rank (JOSAA)</label>
                     <input
                       className="sr-input"
                       type="number"
                       inputMode="numeric"
                       min="1" max="2000000"
-                      placeholder="Enter CRL rank (1 – 20,00,000)"
+                      placeholder="CRL Rank"
                       value={inputCrlAdv}
                       onChange={(e) => { setInputCrlAdv(e.target.value); setDialogError(null); }}
                       disabled={dialogSubmitting || dialogSuccess || crl_adv_rank !== 0}
@@ -1144,25 +1220,23 @@ export default function SetRankPage() {
                   </div>
                   {!isGeneral() && (
                     <div className="sr-dialog-field">
-                      <label className="sr-dialog-field-label">JEE Advanced — Category Rank (JOSAA)</label>
                       <input
                         className="sr-input"
                         type="number"
                         inputMode="numeric"
-                        min="1" max="2000000"
-                        placeholder="Enter category rank (1 – 20,00,000)"
+                        min="1" max="1000000"
+                        placeholder="Category rank"
                         value={inputCategoryAdv}
                         onChange={(e) => { setInputCategoryAdv(e.target.value); setDialogError(null); }}
                         disabled={dialogSubmitting || dialogSuccess || category_adv_rank !== 0}
                         style={{ width: "100%", boxSizing: "border-box" }}
                       />
-                      {category_adv_rank !== 0 && <span className="sr-input-hint warn">Already set — cannot be changed.</span>}
+                      {category_adv_rank !== 0 && <span className="sr-input-hint warn">Already set, cannot be changed.</span>}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Student Details */}
               {dialog === "studentDetails" && (
                 <div className="sr-dialog-field-group">
                   <div className="sr-dialog-field">
@@ -1243,10 +1317,26 @@ export default function SetRankPage() {
         </div>
       )}
 
-      <div className="sr-body">
-        <h1 className="sr-title">Set Ranks</h1>
+      {/* ── Quick Actions Bar ── */}
+      {/* <div className="sr-quick-actions">
+        <span className="sr-quick-label">Quick Actions</span>
+        <Link href="/payments" className="sr-quick-link primary">
+          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          </svg>
+          Payments
+        </Link>
+        <Link href="/set-user-rank" className="sr-quick-link">
+          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Set Rank
+        </Link>
+      </div> */}
 
-        {/* Info lines */}
+      <div className="sr-body">
+        <h1 className="sr-title">Set Rank</h1>
+
         <div className="sr-warning-normal">
           <span style={{ fontWeight: 600, color: "#3b3b3bff" }}>We introduced Test Rank. Use it before Before Your Counselling Starts.</span>
         </div>
@@ -1263,21 +1353,8 @@ export default function SetRankPage() {
           </div>
         )}
 
-        {/* ════════════════════════════════════════════
-            TABLE 1 — Saved / Readable Ranks
-        ════════════════════════════════════════════ */}
+        {/* ════════ TABLE 1 — Saved Ranks ════════ */}
         <div className="sr-table-card">
-          {/* <div className="sr-table-header">
-            <span className="sr-table-header-title">Your Ranks</span>
-          </div> */}
-
-          {/* <div className="sr-table-head">
-            <span className="sr-th">Rank Type</span>
-            <span className="sr-th">Rank</span>
-            <span className="sr-th"></span>
-          </div> */}
-
-          {/* Row: Test Rank */}
           {(() => {
             const { text, empty } = rankVal(test_mains_crl);
             return (
@@ -1287,7 +1364,6 @@ export default function SetRankPage() {
                     JEE Mains (CRL)
                     <span className="sr-tag tag-test">Test Rank</span>
                   </div>
-                  {/* <div className="sr-rank-sub">For JOSAA counselling</div> */}
                 </div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : text}
@@ -1299,14 +1375,12 @@ export default function SetRankPage() {
 
           <div className="sr-section-divider" />
 
-          {/* Row: CRL Mains */}
           {(() => {
             const { text, empty } = rankVal(crl_mains_rank);
             return (
               <div className="sr-rank-row">
                 <div>
-                  <div className="sr-rank-label">JEE Mains (CRL)</div>
-                  {/* <div className="sr-rank-sub">For JOSAA &amp; CSAB counselling</div> */}
+                  <div className="sr-rank-label">JEE Mains - CRL</div>
                 </div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : text}
@@ -1316,15 +1390,11 @@ export default function SetRankPage() {
             );
           })()}
 
-          {/* Row: Category Mains */}
           {(() => {
             if (isGeneral()) {
               return (
                 <div className="sr-rank-row">
-                  <div>
-                    <div className="sr-rank-label">JEE Mains (Category Rank)</div>
-                    {/* <div className="sr-rank-sub">For JOSAA &amp; CSAB counselling</div> */}
-                  </div>
+                  <div><div className="sr-rank-label">JEE Mains - Category Rank</div></div>
                   <div><span className="sr-na">Not applicable</span></div>
                   <div></div>
                 </div>
@@ -1333,10 +1403,7 @@ export default function SetRankPage() {
             const { text, empty } = rankVal(category_mains_rank);
             return (
               <div className="sr-rank-row">
-                <div>
-                  <div className="sr-rank-label">JEE Mains — Category Rank</div>
-                  {/* <div className="sr-rank-sub">For JOSAA &amp; CSAB counselling</div> */}
-                </div>
+                <div><div className="sr-rank-label">JEE Mains — Category Rank</div></div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : text}
                 </div>
@@ -1347,15 +1414,11 @@ export default function SetRankPage() {
 
           <div className="sr-section-divider" />
 
-          {/* Row: CRL Advanced */}
           {(() => {
             const { text, empty } = rankVal(crl_adv_rank);
             return (
               <div className="sr-rank-row">
-                <div>
-                  <div className="sr-rank-label">JEE Advanced (CRL)</div>
-                  {/* <div className="sr-rank-sub">For JOSAA counselling</div> */}
-                </div>
+                <div><div className="sr-rank-label">JEE Advanced - CRL</div></div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : text}
                 </div>
@@ -1364,15 +1427,11 @@ export default function SetRankPage() {
             );
           })()}
 
-          {/* Row: Category Advanced */}
           {(() => {
             if (isGeneral()) {
               return (
                 <div className="sr-rank-row">
-                  <div>
-                    <div className="sr-rank-label">JEE Advanced — Category Rank</div>
-                    {/* <div className="sr-rank-sub">For JOSAA counselling</div> */}
-                  </div>
+                  <div><div className="sr-rank-label">JEE Advanced — Category Rank</div></div>
                   <div><span className="sr-na">Not applicable</span></div>
                   <div></div>
                 </div>
@@ -1381,10 +1440,7 @@ export default function SetRankPage() {
             const { text, empty } = rankVal(category_adv_rank);
             return (
               <div className="sr-rank-row">
-                <div>
-                  <div className="sr-rank-label">JEE Advanced — Category Rank</div>
-                  {/* <div className="sr-rank-sub">For JOSAA counselling</div> */}
-                </div>
+                <div><div className="sr-rank-label">JEE Advanced — Category Rank</div></div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : text}
                 </div>
@@ -1394,11 +1450,7 @@ export default function SetRankPage() {
           })()}
         </div>
 
-
-
-        {/* ════════════════════════════════════════════
-            TABLE 2 — Student Details
-        ════════════════════════════════════════════ */}
+        {/* ════════ TABLE 2 — Student Details ════════ */}
         <div className="sr-warning">
           <span className="sr-warning-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1421,47 +1473,29 @@ export default function SetRankPage() {
             </button>
           </div>
 
-
-          {/* Row: Home State */}
           <div className="sr-rank-row-2col">
-            <div>
-              <div className="sr-rank-label" style={{ fontSize: 14 }}>Home State</div>
-            </div>
+            <div><div className="sr-rank-label" style={{ fontSize: 14 }}>Home State</div></div>
             <div className={`sr-rank-value${!userDetails?.home_state ? " empty" : ""}`}>
-              {loading
-                ? <span className="sr-skeleton" style={{ width: 80 }} />
-                : userDetails?.home_state || "Not set"}
+              {loading ? <span className="sr-skeleton" style={{ width: 80 }} /> : userDetails?.home_state || "Not set"}
             </div>
           </div>
 
-          {/* Row: Gender */}
           <div className="sr-rank-row-2col">
-            <div>
-              <div className="sr-rank-label" style={{ fontSize: 14 }}>Gender</div>
-            </div>
+            <div><div className="sr-rank-label" style={{ fontSize: 14 }}>Gender</div></div>
             <div className={`sr-rank-value${!userDetails?.gender ? " empty" : ""}`}>
-              {loading
-                ? <span className="sr-skeleton" style={{ width: 60 }} />
-                : userDetails?.gender || "Not set"}
+              {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : userDetails?.gender || "Not set"}
             </div>
           </div>
 
-          {/* Row: Category */}
           <div className="sr-rank-row-2col">
-            <div>
-              <div className="sr-rank-label" style={{ fontSize: 14 }}>Category</div>
-            </div>
+            <div><div className="sr-rank-label" style={{ fontSize: 14 }}>Category</div></div>
             <div className={`sr-rank-value${!userDetails?.category ? " empty" : ""}`}>
-              {loading
-                ? <span className="sr-skeleton" style={{ width: 70 }} />
-                : userDetails?.category || "Not set"}
+              {loading ? <span className="sr-skeleton" style={{ width: 70 }} /> : userDetails?.category || "Not set"}
             </div>
           </div>
         </div>
 
-        {/* ════════════════════════════════════════════
-            TABLE 3 — Set Your Ranks (with Set buttons)
-        ════════════════════════════════════════════ */}
+        {/* ════════ TABLE 3 — Set Your Ranks ════════ */}
         <div className="sr-warning">
           <span className="sr-warning-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1472,11 +1506,9 @@ export default function SetRankPage() {
         </div>
 
         <div className="sr-setter-card">
-
           <div className="sr-table-head">
             <span className="sr-setter-new-header">Set Your Rank</span>
             <span className="sr-th">Rank</span>
-            {/* <span className="sr-th">Status</span> */}
           </div>
 
           {/* ── Section A: Test Rank ── */}
@@ -1497,11 +1529,8 @@ export default function SetRankPage() {
             })()}
           </div>
 
-          {/* Row: Test Rank */}
           {(() => {
             const { text, empty } = rankVal(test_mains_crl);
-            const active = josaa_credit;
-            const alreadySet = test_mains_crl !== 0;
             return (
               <div className="sr-rank-row">
                 <div>
@@ -1512,15 +1541,6 @@ export default function SetRankPage() {
                 </div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : text}
-                </div>
-                <div>
-                  {loading ? <span className="sr-skeleton" style={{ width: 50 }} /> : (
-                    alreadySet
-                      ? <span className="sr-sub-active"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Set</span>
-                      : active
-                        ? <span className="sr-status-empty">Not set</span>
-                        : <span className="sr-sub-inactive">Not Paid</span>
-                  )}
                 </div>
               </div>
             );
@@ -1546,54 +1566,27 @@ export default function SetRankPage() {
             })()}
           </div>
 
-          {/* Row: CRL Mains */}
           {(() => {
             const { text, empty } = rankVal(crl_mains_rank);
-            const active = josaa_credit || csab_credit;
-            const alreadySet = crl_mains_rank !== 0;
             return (
               <div className="sr-rank-row">
-                <div>
-                  <div className="sr-rank-label">JEE Mains — CRL</div>
-                </div>
+                <div><div className="sr-rank-label">JEE Mains — CRL</div></div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : text}
-                </div>
-                <div>
-                  {loading ? <span className="sr-skeleton" style={{ width: 50 }} /> : (
-                    alreadySet
-                      ? <span className="sr-sub-active"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Set</span>
-                      : active
-                        ? <span className="sr-status-empty">Not set</span>
-                        : <span className="sr-sub-inactive">Not Paid</span>
-                  )}
                 </div>
               </div>
             );
           })()}
 
-          {/* Row: Category Mains */}
           {(() => {
             const active = josaa_credit || csab_credit;
             const alreadySet = category_mains_rank !== 0;
             const { text, empty } = rankVal(category_mains_rank);
             return (
               <div className="sr-rank-row">
-                <div>
-                  <div className="sr-rank-label">JEE Mains — Category Rank</div>
-                </div>
+                <div><div className="sr-rank-label">JEE Mains — Category Rank</div></div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : isGeneral() ? <span className="sr-na">Not applicable</span> : text}
-                </div>
-                <div>
-                  {loading ? <span className="sr-skeleton" style={{ width: 50 }} /> : isGeneral()
-                    ? <span className="sr-na">Not applicable</span>
-                    : alreadySet
-                      ? <span className="sr-sub-active"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Set</span>
-                      : active
-                        ? <span className="sr-status-empty">Not set</span>
-                        : <span className="sr-sub-inactive">Not Paid</span>
-                  }
                 </div>
               </div>
             );
@@ -1619,61 +1612,31 @@ export default function SetRankPage() {
             })()}
           </div>
 
-          {/* Row: CRL Advanced */}
           {(() => {
             const { text, empty } = rankVal(crl_adv_rank);
-            const active = josaa_credit;
-            const alreadySet = crl_adv_rank !== 0;
             return (
               <div className="sr-rank-row">
-                <div>
-                  <div className="sr-rank-label">JEE Advanced — CRL</div>
-                </div>
+                <div><div className="sr-rank-label">JEE Advanced — CRL</div></div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : text}
-                </div>
-                <div>
-                  {loading ? <span className="sr-skeleton" style={{ width: 50 }} /> : (
-                    alreadySet
-                      ? <span className="sr-sub-active"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Set</span>
-                      : active
-                        ? <span className="sr-status-empty">Not set</span>
-                        : <span className="sr-sub-inactive">Not Paid</span>
-                  )}
                 </div>
               </div>
             );
           })()}
 
-          {/* Row: Category Advanced */}
           {(() => {
-            const active = josaa_credit;
             const alreadySet = category_adv_rank !== 0;
             const { text, empty } = rankVal(category_adv_rank);
             return (
               <div className="sr-rank-row">
-                <div>
-                  <div className="sr-rank-label">JEE Advanced — Category Rank</div>
-                </div>
+                <div><div className="sr-rank-label">JEE Advanced — Category Rank</div></div>
                 <div className={`sr-rank-value${empty ? " empty" : ""}`}>
                   {loading ? <span className="sr-skeleton" style={{ width: 60 }} /> : isGeneral() ? <span className="sr-na">Not applicable</span> : text}
-                </div>
-                <div>
-                  {loading ? <span className="sr-skeleton" style={{ width: 50 }} /> : isGeneral()
-                    ? <span className="sr-na">Not applicable</span>
-                    : alreadySet
-                      ? <span className="sr-sub-active"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Set</span>
-                      : active
-                        ? <span className="sr-status-empty">Not set</span>
-                        : <span className="sr-sub-inactive">Not Paid</span>
-                  }
                 </div>
               </div>
             );
           })()}
         </div>
-
-
 
       </div>
     </>
