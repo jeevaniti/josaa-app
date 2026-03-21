@@ -405,6 +405,268 @@ const styles = `
     to   { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 
+  /* ── Confirmation Dialog ── */
+  .pay-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: backdropIn 0.2s ease-out both;
+  }
+
+  @keyframes backdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .pay-dialog {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 0;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+    animation: dialogIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    overflow: hidden;
+  }
+
+  @keyframes dialogIn {
+    from { opacity: 0; transform: scale(0.92) translateY(12px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .pay-dialog-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 20px 24px 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .pay-dialog-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pay-dialog-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #94a3b8;
+    margin-bottom: 2px;
+  }
+
+  .pay-dialog-plan-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+  }
+
+  .pay-dialog-plan-price {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2563eb;
+    margin-top: 2px;
+  }
+
+  .pay-dialog-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+    font-family: inherit;
+  }
+
+  .pay-dialog-close:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  .pay-dialog-body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Order summary row */
+  .pay-dialog-summary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .pay-dialog-summary-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .pay-dialog-summary-amount {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+
+  .pay-dialog-summary-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: #dcfce7;
+    color: #15803d;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 3px;
+  }
+
+  /* Terms consent box */
+  .pay-dialog-consent {
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    transition: border-color 0.15s ease;
+  }
+
+  .pay-dialog-consent.is-checked {
+    border-color: #2563eb;
+    background: #eff6ff;
+  }
+
+  .pay-dialog-consent-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+  }
+
+  .pay-dialog-checkbox-wrap {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: all 0.15s ease;
+  }
+
+  .pay-dialog-consent.is-checked .pay-dialog-checkbox-wrap {
+    background: #2563eb;
+    border-color: #2563eb;
+  }
+
+  .pay-dialog-consent-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+    line-height: 1.6;
+    user-select: none;
+  }
+
+  .pay-dialog-consent-text a {
+    color: #2563eb;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .pay-dialog-consent-text a:hover {
+    color: #1d4ed8;
+  }
+
+  .pay-dialog-consent-warning {
+    font-size: 11px;
+    font-weight: 600;
+    color: #ef4444;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #fecaca;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Final pay button */
+  .pay-dialog-pay-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .pay-dialog-pay-btn.enabled {
+    background: #2563eb;
+    color: white;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.32);
+  }
+
+  .pay-dialog-pay-btn.enabled:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(37,99,235,0.4);
+  }
+
+  .pay-dialog-pay-btn.enabled:active { transform: scale(0.98); }
+
+  .pay-dialog-pay-btn.disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  .pay-dialog-footer-note {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-top: -8px;
+  }
+
   @media (max-width: 768px) {
     .pay-hero { padding: 28px 16px 32px; }
     .pay-divider { padding: 0 16px; }
@@ -423,6 +685,10 @@ const styles = `
     }
 
     .pay-card.featured:hover { transform: translateY(-3px); }
+
+    .pay-dialog {
+      max-width: 100%;
+    }
   }
 
   @media (max-width: 420px) {
@@ -442,6 +708,7 @@ const PLANS = [
       "Round-wise chance analysis",
       "Opening & closing rank data",
       "Branch-level filtering",
+      "Non-refundable",
     ],
   },
   {
@@ -454,6 +721,7 @@ const PLANS = [
       "Everything of JOSAA Only Plan",
       "CSAB special round",
       "Best value",
+      "Non-refundable",
     ],
   },
   {
@@ -467,6 +735,7 @@ const PLANS = [
       "NIT, IIIT & GFTI coverage",
       "Category-wise filtering",
       "Home state quota analysis",
+      "Non-refundable",
     ],
   },
 ];
@@ -479,10 +748,136 @@ function CheckIcon() {
   );
 }
 
+function CheckIconWhite() {
+  return (
+    <svg width="11" height="11" fill="none" stroke="white" strokeWidth="3" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+// ── Confirmation Dialog ──────────────────────────────────────────
+function ConfirmDialog({ plan, onClose, onConfirm, loading }) {
+  const [agreed, setAgreed] = useState(false);
+
+  // Close on Escape
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="pay-dialog-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="pay-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+
+        {/* Header */}
+        <div className="pay-dialog-header">
+          <div className="pay-dialog-header-left">
+            <p className="pay-dialog-label">Confirm Purchase</p>
+            <p className="pay-dialog-plan-name" id="dialog-title">{plan.name}</p>
+            <p className="pay-dialog-plan-price">Rs.{plan.priceCurrent}/- &nbsp;·&nbsp; One-time</p>
+          </div>
+          <button className="pay-dialog-close" onClick={onClose} aria-label="Close">
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="pay-dialog-body">
+
+          {/* Order summary */}
+          <div className="pay-dialog-summary">
+            <div>
+              <p className="pay-dialog-summary-label">You are purchasing</p>
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>{plan.name} Plan</p>
+              <span className="pay-dialog-summary-badge">Valid till November 2026</span>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ fontSize: "11px", color: "#94a3b8", textDecoration: "line-through", marginBottom: "2px" }}>Rs.{plan.priceStrike}/-</p>
+              <p className="pay-dialog-summary-amount">Rs.{plan.priceCurrent}/-</p>
+            </div>
+          </div>
+
+          {/* Consent checkbox */}
+          <div className={`pay-dialog-consent${agreed ? " is-checked" : ""}`}>
+            <label className="pay-dialog-consent-inner">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={() => setAgreed(v => !v)}
+                style={{ position: "absolute", opacity: 0, width: 0, height: 0 }}
+              />
+              <div className="pay-dialog-checkbox-wrap">
+                {agreed && <CheckIconWhite />}
+              </div>
+              <span className="pay-dialog-consent-text">
+                I have read and agree to the{" "}
+                <a href="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a>
+                {" "}and the{" "}
+                <a href="/refund" target="_blank" rel="noopener noreferrer">Cancellation &amp; Refund Policy</a>.
+                I understand this purchase is <strong>non-refundable</strong> once access is granted.
+              </span>
+            </label>
+
+            {/* Refund warning — always visible */}
+            {/* <p className="pay-dialog-consent-warning">
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              No Refund Policy
+            </p> */}
+          </div>
+
+          {/* Pay button */}
+          <button
+            className={`pay-dialog-pay-btn${agreed ? " enabled" : " disabled"}`}
+            onClick={() => agreed && onConfirm()}
+            disabled={!agreed || loading}
+          >
+            {loading ? (
+              <>
+                <svg style={{ animation: "spin 0.8s linear infinite" }} width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" />
+                  <path fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Processing...
+              </>
+            ) : (
+              <>
+                <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <rect x="1" y="4" width="22" height="16" rx="2" />
+                  <path strokeLinecap="round" d="M1 10h22" />
+                </svg>
+                Pay Rs.{plan.priceCurrent}/- Securely
+              </>
+            )}
+          </button>
+
+          {/* Razorpay note */}
+          <p className="pay-dialog-footer-note">
+            <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Secured by Razorpay &nbsp;·&nbsp; 256-bit SSL encryption
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ────────────────────────────────────────────────────
 export default function PaymentsPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [dialogPlan, setDialogPlan] = useState(null); // plan object or null
 
   // Load Razorpay script once on mount
   useEffect(() => {
@@ -494,13 +889,21 @@ export default function PaymentsPage() {
     document.body.appendChild(script);
   }, []);
 
-
   function showError(msg) {
     setErrorMsg(msg);
     setTimeout(() => setErrorMsg(null), 4000);
   }
 
-  async function handleBuy(planId) {
+  // Step 1: user clicks plan CTA → open dialog
+  function handlePlanClick(plan) {
+    setDialogPlan(plan);
+  }
+
+  // Step 2: user ticks consent in dialog and hits Pay
+  async function handleConfirmedPay() {
+    if (!dialogPlan) return;
+    const planId = dialogPlan.id;
+
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -508,11 +911,10 @@ export default function PaymentsPage() {
         return;
       }
 
-      setLoading(planId);
+      setLoading(true);
 
       const idToken = await user.getIdToken(true);
 
-      // Create Razorpay order via our API
       const res = await fetch("/api/create_order", {
         method: "POST",
         headers: {
@@ -529,7 +931,6 @@ export default function PaymentsPage() {
 
       const data = await res.json();
 
-      // Open Razorpay checkout modal
       const options = {
         key: data.key,
         amount: data.amount,
@@ -538,14 +939,12 @@ export default function PaymentsPage() {
         name: "JOSAA Master",
         description: data.planLabel,
         handler: function () {
-          // Called on successful payment capture
-          // router.push("/payment-success");
+          setDialogPlan(null);
           router.push("/set-user-rank");
         },
         modal: {
           ondismiss: function () {
-            // User closed modal without paying
-            setLoading(null);
+            setLoading(false);
           },
         },
         prefill: {
@@ -562,16 +961,16 @@ export default function PaymentsPage() {
 
       rzp.on("payment.failed", function (response) {
         showError("Payment failed. Please try again.");
-        setLoading(null);
+        setLoading(false);
         console.error("Razorpay payment.failed:", response.error);
       });
 
       rzp.open();
 
     } catch (err) {
-      console.error("handleBuy error:", err);
+      console.error("handleConfirmedPay error:", err);
       showError(err.message || "Something went wrong. Please try again.");
-      setLoading(null);
+      setLoading(false);
     }
   }
 
@@ -639,12 +1038,13 @@ export default function PaymentsPage() {
                   ))}
                 </div>
 
+                {/* Clean CTA — no checkbox here */}
                 <button
                   className={`pay-cta-btn${plan.featured ? " primary" : " default"}`}
-                  onClick={() => handleBuy(plan.id)}
-                  disabled={loading !== null}
+                  onClick={() => handlePlanClick(plan)}
+                  disabled={loading}
                 >
-                  {loading === plan.id ? "Processing..." : `Get ${plan.name}`}
+                  {`Get ${plan.name}`}
                 </button>
 
                 <div className="pay-card-validity">
@@ -689,6 +1089,16 @@ export default function PaymentsPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirmation dialog */}
+      {dialogPlan && (
+        <ConfirmDialog
+          plan={dialogPlan}
+          onClose={() => { setDialogPlan(null); setLoading(false); }}
+          onConfirm={handleConfirmedPay}
+          loading={loading}
+        />
+      )}
 
       {errorMsg && (
         <div className="pay-error-toast">{errorMsg}</div>

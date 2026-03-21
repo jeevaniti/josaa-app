@@ -1341,6 +1341,160 @@
         }
 
         /* ============================================================
+           CONTACT SECTION
+        ============================================================ */
+        #section-contact {
+            background: var(--color-card);
+            padding: 96px 24px;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .contact__inner {
+            max-width: 640px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .contact__label {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-blue);
+            margin-bottom: 16px;
+        }
+
+        .contact__title {
+            font-size: clamp(24px, 3vw, 34px);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--color-text-primary);
+            margin-bottom: 14px;
+            line-height: 1.2;
+        }
+
+        .contact__subtitle {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            line-height: 1.65;
+            margin-bottom: 40px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .contact__card {
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 36px 40px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            text-align: left;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: var(--shadow-card);
+        }
+
+        .contact__card:hover {
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.09);
+            border-color: #c7d7fd;
+        }
+
+        .contact__card-icon {
+            width: 52px;
+            height: 52px;
+            background: #eff6ff;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 1px solid #dbeafe;
+        }
+
+        .contact__card-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .contact__card-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-text-muted);
+            margin-bottom: 4px;
+        }
+
+        .contact__card-email {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--color-blue);
+            letter-spacing: -0.01em;
+            word-break: break-all;
+        }
+
+        .contact__card-desc {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            margin-top: 4px;
+        }
+
+        .contact__card-arrow {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            background: #eff6ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--color-blue);
+            transition: background 0.15s ease;
+        }
+
+        .contact__card:hover .contact__card-arrow {
+            background: var(--color-blue);
+            color: white;
+        }
+
+        .contact__note {
+            margin-top: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-muted);
+        }
+
+        @media (max-width: 480px) {
+            #section-contact {
+                padding: 64px 20px;
+            }
+
+            .contact__card {
+                padding: 24px 20px;
+                flex-wrap: wrap;
+            }
+
+            .contact__card-email {
+                font-size: 15px;
+            }
+
+            .contact__card-arrow {
+                display: none;
+            }
+
+            .contact__subtitle {
+                margin-bottom: 28px;
+            }
+        }
+
+        /* ============================================================
            FOOTER
         ============================================================ */
         #site-footer {
@@ -1533,7 +1687,7 @@
                         <li><a href="#" class="navbar__link">Home</a></li>
                         <li><a href="#section-how-it-works" class="navbar__link">How it Works</a></li>
                         <li><a href="#section-reviews" class="navbar__link">Reviews</a></li>
-                        <li><a href="#site-footer" class="navbar__link">Contact</a></li>
+                        <li><a href="#section-contact" class="navbar__link">Contact</a></li>
                     </ul>
 
                     <!-- Desktop auth buttons -->
@@ -1565,6 +1719,7 @@
                     <a href="#section-how-it-works" class="navbar__mobile-link" onclick="toggleMobileMenu()">How it
                         Works</a>
                     <a href="#section-reviews" class="navbar__mobile-link" onclick="toggleMobileMenu()">Reviews</a>
+                    <a href="#section-contact" class="navbar__mobile-link" onclick="toggleMobileMenu()">Contact</a>
                     <button class="btn--mobile-cta" onclick="window.location.href='/signup'">Check My
                         Chances</button>
                 </div>
@@ -1934,6 +2089,42 @@
                 </div>
             </section>
 
+            <!-- CONTACT -->
+            <section id="section-contact" aria-labelledby="contact-title">
+                <div class="page-container">
+                    <div class="contact__inner">
+                        <span class="contact__label">Get in Touch</span>
+                        <h2 id="contact-title" class="contact__title">Have a question or issue?</h2>
+                        <p class="contact__subtitle">If you have any questions, feedback, or payment issues, feel free
+                            to reach out. We typically respond within 24 hours.</p>
+
+                        <a href="mailto:support@josaamaster.in" class="contact__card">
+                            <div class="contact__card-icon" aria-hidden="true">
+                                <svg width="24" height="24" fill="none" stroke="#2563EB" stroke-width="2"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div class="contact__card-body">
+                                <p class="contact__card-label">Email Support</p>
+                                <p class="contact__card-email">support@josaamaster.in</p>
+                                <p class="contact__card-desc">Best for account, payment &amp; technical issues</p>
+                            </div>
+                            <div class="contact__card-arrow" aria-hidden="true">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                </svg>
+                            </div>
+                        </a>
+
+                        <p class="contact__note">Mon – Sat, 10 AM – 6 PM IST &nbsp;·&nbsp; Not affiliated with JOSAA /
+                            NTA</p>
+                    </div>
+                </div>
+            </section>
+
             <!-- FOOTER -->
             <footer id="site-footer" role="contentinfo">
                 <div class="page-container">
@@ -1943,9 +2134,10 @@
                             <span class="footer__logo-text">JOSAA Master</span>
                         </div>
                         <ul class="footer__links" role="list">
-                            <li><a href="#" class="footer__link">Privacy</a></li>
-                            <li><a href="#" class="footer__link">Terms</a></li>
-                            <li><a href="#" class="footer__link">Contact</a></li>
+                            <li><a href="/privacy" class="footer__link">Privacy</a></li>
+                            <li><a href="/terms" class="footer__link">Terms</a></li>
+                            <li><a href="/refund" class="footer__link">Refund</a></li>
+                            <li><a href="/shipping" class="footer__link">Shipping</a></li>
                         </ul>
                         <p class="footer__legal">Not affiliated with JOSAA / NTA.</p>
                     </div>

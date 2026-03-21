@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import Footer from "@/components/Footer";
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
@@ -304,6 +305,12 @@ const CSS = `
     flex: 1;
     min-height: 100vh;
     background: var(--color-bg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .main-content-inner {
+    flex: 1;
   }
 
   /* Auth loading screen */
@@ -538,7 +545,10 @@ export default function DashboardLayout({ children }) {
 
         {/* Page content */}
         <main className="main-content">
-          {children}
+          <div className="main-content-inner">
+            {children}
+          </div>
+          <Footer />
         </main>
 
       </div>

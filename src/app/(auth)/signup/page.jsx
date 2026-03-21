@@ -384,7 +384,6 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
-    if (!name.trim()) { setError("Please enter your name."); return; }
     if (!email || !password) { setError("Please fill in all fields."); return; }
     if (password !== confirm) { setError("Passwords don't match."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
@@ -446,15 +445,15 @@ export default function SignupPage() {
             <div className="auth-steps">
               <div className="auth-step">
                 <span className="auth-step-num">1</span>
-                <p className="auth-step-text"><strong>Create your account</strong> — free, no credit card needed.</p>
+                <p className="auth-step-text"><strong>Create your account</strong></p>
               </div>
               <div className="auth-step">
                 <span className="auth-step-num">2</span>
-                <p className="auth-step-text"><strong>Set your JEE rank</strong> and category preferences.</p>
+                <p className="auth-step-text"><strong>Set your JEE rank</strong></p>
               </div>
               <div className="auth-step">
                 <span className="auth-step-num">3</span>
-                <p className="auth-step-text"><strong>Find colleges</strong> with real JOSAA cutoff data.</p>
+                <p className="auth-step-text"><strong>Find colleges</strong></p>
               </div>
             </div>
           </div>
@@ -491,7 +490,7 @@ export default function SignupPage() {
             </div>
 
             <form className="auth-form" onSubmit={handleSignup}>
-              <div className="form-field">
+              {/* <div className="form-field">
                 <label className="form-label">Full Name</label>
                 <input
                   className="form-input"
@@ -501,7 +500,7 @@ export default function SignupPage() {
                   onChange={e => { setName(e.target.value); setError(""); }}
                   autoComplete="name"
                 />
-              </div>
+              </div> */}
 
               <div className="form-field">
                 <label className="form-label">Email</label>
@@ -547,7 +546,7 @@ export default function SignupPage() {
               </button>
 
               <p className="terms-note">
-                By signing up you agree to our Terms of Service and Privacy Policy.
+                By signing up you agree to our <a href="/terms">Terms of Service</a>and <a href="/privacy">Privacy Policy.</a>
               </p>
             </form>
           </div>

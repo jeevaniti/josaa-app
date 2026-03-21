@@ -453,10 +453,10 @@ export default function LoginPage() {
               Your <em>smartest</em> guide to JEE counselling.
             </h2>
             <p className="auth-left-sub">
-              Find the right college, track every round, and make decisions backed by real data.
+              Find the right college for You.
             </p>
             <div className="auth-left-pills">
-              <span className="auth-pill">JOSAA 2025</span>
+              <span className="auth-pill">JOSAA 2026</span>
               <span className="auth-pill">CSAB</span>
               <span className="auth-pill">JEE Advanced</span>
               <span className="auth-pill">47+ colleges</span>
