@@ -452,10 +452,8 @@ const PLANS = [
     featured: true,
     features: [
       "Everything of JOSAA Only Plan",
-      "CSAB special round predictor",
-      "Dual rank support",
-      "Priority result generation",
-      "Best value for most students",
+      "CSAB special round",
+      "Best value",
     ],
   },
   {
@@ -496,25 +494,6 @@ export default function PaymentsPage() {
     document.body.appendChild(script);
   }, []);
 
-  // If user already paid, redirect to services
-  // useEffect(() => {
-  //     const checkIfPaid = async () => {
-  //         try {
-  //             const user = auth.currentUser;
-  //             if (!user) return;
-  //             const idToken = await user.getIdToken(true);
-  //             const res = await fetch("/api/has-paid-verify", {
-  //                 method: "POST",
-  //                 headers: { "Content-Type": "application/json" },
-  //                 body: JSON.stringify({ token: idToken }),
-  //             });
-  //             if (res.status === 200) router.push("/dashboard");
-  //         } catch (err) {
-  //             console.error("Payment check error:", err);
-  //         }
-  //     };
-  //     checkIfPaid();
-  // }, [router]);
 
   function showError(msg) {
     setErrorMsg(msg);

@@ -500,7 +500,6 @@ export default function DashboardLayout({ children }) {
               <div className="sidebar-logo-icon">JM</div>
               <div className="sidebar-logo-text">JOSAA Master</div>
             </div>
-            <p className="sidebar-nav-label">Navigation</p>
           </div>
 
           <nav className="sidebar-nav">

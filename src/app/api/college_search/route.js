@@ -19,18 +19,17 @@ async function getMongoClient() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// THE FIX:
+// Gender mapping
 // DynamoDB stores gender as "Male" / "Female"
 // MongoDB stores gender as "Gender-Neutral" / "Female-only (including Supernumerary)"
 //
-// "Male"   → can sit in "Gender-Neutral" seats (open to everyone)
+// "Male"   → can sit in "Gender-Neutral" seats only
 // "Female" → can sit in both "Gender-Neutral" AND "Female-Only" seats
 // ─────────────────────────────────────────────────────────────────────────────
 function mapGenderToDbValues(dynamo_gender) {
     if (dynamo_gender === "Female") {
         return ["Gender-Neutral", "Female-only (including Supernumerary)"];
     }
-    // Male → Gender-Neutral seats only
     return ["Gender-Neutral"];
 }
 
@@ -70,8 +69,14 @@ const BRANCH_MAP = {
     3010: "Metallurgy",
     3011: "Mechanical",
     3012: "Bio Technology",
-    3013: "Others",
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pagination constants
+// ─────────────────────────────────────────────────────────────────────────────
+const DEFAULT_PAGE = 1;
+const PAGE_LIMIT = 20; // hardcoded — never comes from the client
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Decode + validate filter ID arrays
@@ -120,6 +125,12 @@ function buildFilterMatch(round, collegeTypes, degreeTypes, branches) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared pipeline stages
+//
+// IMPORTANT: LIMIT and PROJECT are intentionally removed from here.
+// They live exclusively inside buildFacetStage() so that the $count branch
+// of the $facet always sees the full filtered+scored result set — not a
+// truncated one. If LIMIT came before $facet, total_count would be capped
+// at the limit value, not the real total.
 // ─────────────────────────────────────────────────────────────────────────────
 const QUOTA_ELIGIBILITY_STAGE = {
     $match: {
@@ -171,9 +182,9 @@ const SCORE_STAGE = {
     },
 };
 
+// Sort before $facet so both branches (results + count) see the same ordered set
 const SORT_STAGE = { $sort: { score: -1, clz_tier: 1, branch_score: 1 } };
-const LIMIT_STAGE = { $limit: 300 };
-const OUTPUT_STAGE = { $project: { clz_name: 1, branch: 1, chance: 1, open_rank: 1, close_rank: 1, year: 1, round: 1, category: 1 } };
+
 const BLOCK_IIT_STAGE = { $match: { clz_type: { $ne: "IIT" } } };
 
 // Rank selectors
@@ -231,12 +242,71 @@ const RANK_SELECT_OPEN_MAINS_ONLY = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Facet stage — appended after every pipeline builder
+//
+// Structure:
+//   $facet splits the stream into two parallel branches:
+//     "results"     → skip → limit → project  (the page the user sees)
+//     "total_count" → $count                  (cheap, no document transfer)
+//
+//   $addFields then unwraps total_count from its single-element array and
+//   pre-computes total_pages so the frontend never has to do arithmetic.
+//
+// One DB round-trip, no second query for the count.
+// ─────────────────────────────────────────────────────────────────────────────
+function buildFacetStage(page, limit) {
+    const skip = (page - 1) * limit;
+    return [
+        {
+            $facet: {
+                results: [
+                    { $skip: skip },
+                    { $limit: limit },
+                    {
+                        $project: {
+                            clz_id: 1,
+                            clz_name: 1,
+                            branch: 1,
+                            quota: 1,
+                            category: 1,
+                            chance: 1,
+                            score: 1,
+                            open_rank: 1,
+                            close_rank: 1,
+                            year: 1,
+                            round: 1,
+                        },
+                    },
+                ],
+                total_count: [
+                    { $count: "count" },
+                ],
+            },
+        },
+        {
+            $addFields: {
+                total_count: { $arrayElemAt: ["$total_count.count", 0] },
+                current_page: page,
+                total_pages: {
+                    $ceil: {
+                        $divide: [
+                            { $arrayElemAt: ["$total_count.count", 0] },
+                            limit,
+                        ],
+                    },
+                },
+            },
+        },
+    ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pipeline builders
-// Gender is passed as dbGenders array into each pipeline's $match stage.
-// It is NOT stored in $set — it's only used as a filter, never referenced by later stages.
+// Every builder ends at SORT_STAGE — no $limit or $project.
+// The facet is appended in the POST handler after selectPipeline().
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Condition 2: JOSAA | non-OPEN | has all 4 ranks → sees IITs
+// JOSAA | non-OPEN | has all 4 ranks → sees IITs
 function buildPipeline_JOSAA_Category_WithAdv(user, dbGenders, filterMatch) {
     return [
         {
@@ -247,17 +317,18 @@ function buildPipeline_JOSAA_Category_WithAdv(user, dbGenders, filterMatch) {
                 category_mains_rank: user.category_mains_rank,
                 crl_adv_rank: user.crl_adv_rank,
                 category_adv_rank: user.category_adv_rank,
-            }
+            },
         },
         { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN", user.category] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_ALL_FOUR,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+        SCORE_STAGE,
+        SORT_STAGE,
     ];
 }
 
-// Condition 3: JOSAA | non-OPEN | mains only → no IITs
+// JOSAA | non-OPEN | mains only → no IITs
 function buildPipeline_JOSAA_Category_NoAdv(user, dbGenders, filterMatch) {
     return [
         {
@@ -266,18 +337,19 @@ function buildPipeline_JOSAA_Category_NoAdv(user, dbGenders, filterMatch) {
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
                 category_mains_rank: user.category_mains_rank,
-            }
+            },
         },
         BLOCK_IIT_STAGE,
         { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN", user.category] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+        SCORE_STAGE,
+        SORT_STAGE,
     ];
 }
 
-// Condition 4: JOSAA | OPEN | crl_mains + crl_adv → sees IITs
+// JOSAA | OPEN | crl_mains + crl_adv → sees IITs
 function buildPipeline_JOSAA_Open_WithAdv(user, dbGenders, filterMatch) {
     return [
         {
@@ -286,17 +358,18 @@ function buildPipeline_JOSAA_Open_WithAdv(user, dbGenders, filterMatch) {
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
                 crl_adv_rank: user.crl_adv_rank,
-            }
+            },
         },
         { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_OPEN_WITH_ADV,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+        SCORE_STAGE,
+        SORT_STAGE,
     ];
 }
 
-// Condition 5: JOSAA | OPEN | mains only → no IITs
+// JOSAA | OPEN | mains only → no IITs
 function buildPipeline_JOSAA_Open_NoAdv(user, dbGenders, filterMatch) {
     return [
         {
@@ -304,18 +377,19 @@ function buildPipeline_JOSAA_Open_NoAdv(user, dbGenders, filterMatch) {
                 user_home_state: user.home_state,
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
-            }
+            },
         },
         BLOCK_IIT_STAGE,
         { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_OPEN_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+        SCORE_STAGE,
+        SORT_STAGE,
     ];
 }
 
-// Condition 6 (CSAB only): CSAB | OPEN | crl_mains → no IITs ever
+// CSAB | OPEN | crl_mains → no IITs ever
 function buildPipeline_CSAB_Open(user, dbGenders, filterMatch) {
     return [
         {
@@ -323,18 +397,19 @@ function buildPipeline_CSAB_Open(user, dbGenders, filterMatch) {
                 user_home_state: user.home_state,
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
-            }
+            },
         },
         BLOCK_IIT_STAGE,
         { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_OPEN_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+        SCORE_STAGE,
+        SORT_STAGE,
     ];
 }
 
-// Condition 7 (CSAB only): CSAB | non-OPEN | crl_mains + cat_mains → no IITs ever
+// CSAB | non-OPEN | crl_mains + cat_mains → no IITs ever
 function buildPipeline_CSAB_Category(user, dbGenders, filterMatch) {
     return [
         {
@@ -343,18 +418,17 @@ function buildPipeline_CSAB_Category(user, dbGenders, filterMatch) {
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
                 category_mains_rank: user.category_mains_rank,
-            }
+            },
         },
         BLOCK_IIT_STAGE,
         { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN", user.category] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+        SCORE_STAGE,
+        SORT_STAGE,
     ];
 }
-
-// ── TEST pipelines (JOSAA collection, no IITs, test_mains_crl only) ───────────
 
 // TEST | OPEN category
 function buildPipeline_TEST_OPEN_CATEGORY(user, dbGenders, filterMatch) {
@@ -364,14 +438,15 @@ function buildPipeline_TEST_OPEN_CATEGORY(user, dbGenders, filterMatch) {
                 user_home_state: user.home_state,
                 user_category: user.category,
                 crl_mains_rank: user.test_mains_crl,
-            }
+            },
         },
         BLOCK_IIT_STAGE,
         { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_OPEN_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+        SCORE_STAGE,
+        SORT_STAGE,
     ];
 }
 
@@ -383,19 +458,20 @@ function buildPipeline_TEST_WITH_CATEGORY(user, dbGenders, filterMatch) {
                 user_home_state: user.home_state,
                 user_category: user.category,
                 crl_mains_rank: user.test_mains_crl,
-            }
+            },
         },
         BLOCK_IIT_STAGE,
-        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN", user.category] }, ...filterMatch } },
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
-        RANK_SELECT_MAINS_ONLY,
+        RANK_SELECT_OPEN_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+        SCORE_STAGE,
+        SORT_STAGE,
     ];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pipeline selector — fully separated by mode
+// Pipeline selector
 // ─────────────────────────────────────────────────────────────────────────────
 function selectPipeline(mode, user, dbGenders, filterMatch) {
     const isOpen = user.category === "OPEN";
@@ -407,20 +483,17 @@ function selectPipeline(mode, user, dbGenders, filterMatch) {
     const hasBothAdv = hasCrlAdv && hasCatAdv;
     const hasTestRank = user.test_mains_crl > 0;
 
-    // ── JOSAA ────────────────────────────────────────────────────────────────
     if (mode === "JOSAA") {
         if (!isOpen) {
             if (hasMainsRanks && hasBothAdv) return { pipeline: buildPipeline_JOSAA_Category_WithAdv(user, dbGenders, filterMatch) };
             if (hasMainsRanks) return { pipeline: buildPipeline_JOSAA_Category_NoAdv(user, dbGenders, filterMatch) };
             return { pipeline: null, error: "Insufficient rank data for JOSAA (non-OPEN). Need crl_mains_rank and category_mains_rank." };
         }
-        // OPEN
         if (hasCrlMains && hasCrlAdv) return { pipeline: buildPipeline_JOSAA_Open_WithAdv(user, dbGenders, filterMatch) };
         if (hasCrlMains) return { pipeline: buildPipeline_JOSAA_Open_NoAdv(user, dbGenders, filterMatch) };
         return { pipeline: null, error: "Insufficient rank data for JOSAA (OPEN). Need crl_mains_rank." };
     }
 
-    // ── CSAB ─────────────────────────────────────────────────────────────────
     if (mode === "CSAB") {
         if (isOpen) {
             if (hasCrlMains) return { pipeline: buildPipeline_CSAB_Open(user, dbGenders, filterMatch) };
@@ -430,7 +503,6 @@ function selectPipeline(mode, user, dbGenders, filterMatch) {
         return { pipeline: null, error: "Insufficient rank data for CSAB (non-OPEN). Need crl_mains_rank and category_mains_rank." };
     }
 
-    // ── TEST ─────────────────────────────────────────────────────────────────
     if (mode === "TEST") {
         if (!hasTestRank) return { pipeline: null, error: "Insufficient rank data for TEST. Need test_mains_crl." };
         if (isOpen) return { pipeline: buildPipeline_TEST_OPEN_CATEGORY(user, dbGenders, filterMatch) };
@@ -495,40 +567,47 @@ export async function POST(request) {
         if (isNaN(roundInt) || roundInt < min || roundInt > max)
             return NextResponse.json({ error: `Invalid round for ${mode}. Must be ${min}–${max}.` }, { status: 400 });
 
-        // 5. Decode filters
+        // 5. Validate + parse pagination params
+        const page = Math.max(1, parseInt(body.page ?? 1, 10));
+        const limit = PAGE_LIMIT;
+
+        // 6. Decode filters
         const filterResult = decodeAndValidateFilters(body);
         if (filterResult.errors.length > 0)
             return NextResponse.json({ error: filterResult.errors.join("; ") }, { status: 400 });
         const { collegeTypes, degreeTypes, branches } = filterResult;
 
-        // 6. Fetch user from DynamoDB
+        // 7. Fetch user from DynamoDB
         let user;
         try { user = await fetchUserFromDynamo(fb_uid); }
-        catch (e) { console.error("[college_search] DynamoDB error:", e); return NextResponse.json({ error: "Failed to fetch user data" }, { status: 500 }); }
+        catch (e) {
+            console.error("[college_search] DynamoDB error:", e);
+            return NextResponse.json({ error: "Failed to fetch user data" }, { status: 500 });
+        }
         if (!user) return NextResponse.json({ error: "User profile not found" }, { status: 404 });
 
-        // 7. Check subscription credits
+        // 8. Check subscription credits
         if (mode === "JOSAA" && !user.josaa_credits)
             return NextResponse.json({ error: "JOSAA subscription required" }, { status: 403 });
         if (mode === "CSAB" && !user.csab_credits)
             return NextResponse.json({ error: "CSAB subscription required" }, { status: 403 });
         if (mode === "TEST" && !user.josaa_credits && !user.csab_credits)
-            return NextResponse.json({ error: "An active subscription (JOSAA or CSAB) is required for TEST mode" }, { status: 403 });
+            return NextResponse.json({ error: "An active subscription (JOSAA or CSAB) is required for TEST mode" }, { status: 400 });
 
-        // 8. Map DynamoDB gender → MongoDB gender values  ← THE FIX
+        // 9. Map DynamoDB gender → MongoDB gender values
         const dbGenders = mapGenderToDbValues(user.gender);
 
-        // 9. Build filter match
+        // 10. Build filter match
         const filterMatch = buildFilterMatch(roundInt, collegeTypes, degreeTypes, branches);
 
-        // 10. Select pipeline
+        // 11. Select base pipeline (ends at SORT_STAGE — no limit / project)
         const { pipeline, error: pipelineError } = selectPipeline(mode, user, dbGenders, filterMatch);
         if (!pipeline) return NextResponse.json({ error: pipelineError }, { status: 422 });
 
-        // 11. Run aggregation
-        // JOSAA → MONGODB_COLLECTION_JOSAA
-        // TEST  → MONGODB_COLLECTION_JOSAA  (same data, different rank logic)
-        // CSAB  → MONGODB_COLLECTION_CSAB
+        // 12. Append facet for pagination + total_count — single DB round-trip
+        const fullPipeline = [...pipeline, ...buildFacetStage(page, limit)];
+
+        // 13. Run aggregation
         let raw;
         try {
             const collectionName = (mode === "CSAB")
@@ -538,17 +617,23 @@ export async function POST(request) {
             const client = await getMongoClient();
             const db = client.db(process.env.MONGODB_DB_NAME);
             const collection = db.collection(collectionName);
-            raw = await collection.aggregate(pipeline).toArray();
+            raw = await collection.aggregate(fullPipeline).toArray();
         } catch (e) {
             console.error("[college_search] MongoDB error:", e);
             return NextResponse.json({ error: "Database query failed" }, { status: 500 });
         }
 
-        // 12. Shape response
-        const results = raw.map(doc => ({
+        // 14. Shape response
+        // $facet always returns exactly one document — unwrap it
+        const facetResult = raw[0] ?? {};
+        const total_count = facetResult.total_count ?? 0;
+        const total_pages = facetResult.total_pages ?? 1;
+
+        const results = (facetResult.results ?? []).map(doc => ({
             college_name: doc.clz_name ?? "",
             branch: doc.branch ?? "",
             probability: doc.chance ?? "",
+            quota: doc.quota ?? "",
             round: doc.round ?? "",
             year: doc.year ?? "",
             opening: doc.open_rank ?? "",
@@ -556,7 +641,13 @@ export async function POST(request) {
             category: doc.category ?? "",
         }));
 
-        return NextResponse.json({ results }, { status: 200 });
+        return NextResponse.json({
+            results,
+            total_count,
+            total_pages,
+            current_page: page,
+            limit,
+        }, { status: 200 });
 
     } catch (err) {
         console.error("[college_search] Unexpected error:", err);

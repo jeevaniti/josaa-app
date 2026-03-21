@@ -7,10 +7,9 @@ import { GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { MongoClient } from "mongodb";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MongoDB singleton connection
+// MongoDB singleton
 // ─────────────────────────────────────────────────────────────────────────────
 let cachedClient = null;
-
 async function getMongoClient() {
     if (cachedClient) return cachedClient;
     const client = new MongoClient(process.env.MONGODB_URI);
@@ -20,9 +19,24 @@ async function getMongoClient() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ID → value maps  (frontend sends IDs, we decode them here)
+// THE FIX:
+// DynamoDB stores gender as "Male" / "Female"
+// MongoDB stores gender as "Gender-Neutral" / "Female-only (including Supernumerary)"
+//
+// "Male"   → can sit in "Gender-Neutral" seats (open to everyone)
+// "Female" → can sit in both "Gender-Neutral" AND "Female-Only" seats
 // ─────────────────────────────────────────────────────────────────────────────
+function mapGenderToDbValues(dynamo_gender) {
+    if (dynamo_gender === "Female") {
+        return ["Gender-Neutral", "Female-only (including Supernumerary)"];
+    }
+    // Male → Gender-Neutral seats only
+    return ["Gender-Neutral"];
+}
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ID → value maps
+// ─────────────────────────────────────────────────────────────────────────────
 const VALID_MODE_IDS = new Set(["TEST", "JOSAA", "CSAB"]);
 
 const ROUND_LIMITS = {
@@ -31,7 +45,6 @@ const ROUND_LIMITS = {
     CSAB: { min: 1, max: 3 },
 };
 
-// College type IDs → MongoDB clz_type strings
 const COLLEGE_TYPE_MAP = {
     1001: "IIT",
     1002: "IIIT",
@@ -39,13 +52,11 @@ const COLLEGE_TYPE_MAP = {
     1004: "Other Govt College",
 };
 
-// Degree type IDs → regex pattern strings matched against `duration` field
 const DEGREE_TYPE_MAP = {
-    2001: "4",  // "4 Years"
-    2002: "5",  // "5 Years"
+    2001: "4",
+    2002: "5",
 };
 
-// Branch IDs → regex keyword strings matched against `branch` field
 const BRANCH_MAP = {
     3001: "Computer",
     3002: "Chemical",
@@ -58,15 +69,15 @@ const BRANCH_MAP = {
     3009: "Electrical",
     3010: "Metallurgy",
     3011: "Mechanical",
-    3012: "Bio Technology"
+    3012: "Bio Technology",
+    3013: "Others",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Decode + validate incoming filter ID arrays
+// Decode + validate filter ID arrays
 // ─────────────────────────────────────────────────────────────────────────────
 function decodeAndValidateFilters(body) {
     const errors = [];
-
     const rawCollegeType = body.college_type;
     const rawDegreeType = body.degree_type;
     const rawBranch = body.branch;
@@ -86,7 +97,6 @@ function decodeAndValidateFilters(body) {
 
     if (errors.length > 0) return { errors };
 
-    // Decode IDs → values (unknown IDs are silently dropped)
     const collegeTypes = (rawCollegeType || []).map(id => COLLEGE_TYPE_MAP[id]).filter(Boolean);
     const degreeTypes = (rawDegreeType || []).map(id => DEGREE_TYPE_MAP[id]).filter(Boolean);
     const branches = (rawBranch || []).map(id => BRANCH_MAP[id]).filter(Boolean);
@@ -95,55 +105,29 @@ function decodeAndValidateFilters(body) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Build the frontend-filter $match fields object
-// This object is spread directly into each pipeline's $match stage.
-// Empty arrays = that filter is not applied (fetch all).
+// Build frontend filter fields — injected into each pipeline's $match
 // ─────────────────────────────────────────────────────────────────────────────
 function buildFilterMatch(round, collegeTypes, degreeTypes, branches) {
     const match = {
         year: 2025,
         round: round,
     };
-
-    // branch: regex OR of all decoded keywords  e.g. "Computer|Civil|Electrical"
-    if (branches.length > 0) {
-        match.branch = { $regex: branches.join("|"), $options: "i" };
-    }
-
-    // duration: regex OR of decoded values  e.g. "4|5"
-    if (degreeTypes.length > 0) {
-        match.duration = { $regex: degreeTypes.join("|"), $options: "i" };
-    }
-
-    // clz_type: $in array  e.g. ["IIT", "NIT"]
-    if (collegeTypes.length > 0) {
-        match.clz_type = { $in: collegeTypes };
-    }
-
+    if (branches.length > 0) match.branch = { $regex: branches.join("|"), $options: "i" };
+    if (degreeTypes.length > 0) match.duration = { $regex: degreeTypes.join("|"), $options: "i" };
+    if (collegeTypes.length > 0) match.clz_type = { $in: collegeTypes };
     return match;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared pipeline stages — identical across all pipelines
+// Shared pipeline stages
 // ─────────────────────────────────────────────────────────────────────────────
-
 const QUOTA_ELIGIBILITY_STAGE = {
     $match: {
         $expr: {
             $or: [
                 { $eq: ["$quota", "AI"] },
-                {
-                    $and: [
-                        { $eq: ["$quota", "HS"] },
-                        { $eq: ["$clz_state", "$user_home_state"] },
-                    ],
-                },
-                {
-                    $and: [
-                        { $eq: ["$quota", "OS"] },
-                        { $ne: ["$clz_state", "$user_home_state"] },
-                    ],
-                },
+                { $and: [{ $eq: ["$quota", "HS"] }, { $eq: ["$clz_state", "$user_home_state"] }] },
+                { $and: [{ $eq: ["$quota", "OS"] }, { $ne: ["$clz_state", "$user_home_state"] }] },
             ],
         },
     },
@@ -154,30 +138,14 @@ const CHANCE_CALC_STAGE = {
         chance: {
             $switch: {
                 branches: [
+                    { case: { $lte: ["$rank_used", "$open_rank"] }, then: "Strong" },
                     {
-                        case: { $lte: ["$rank_used", "$open_rank"] },
-                        then: "Strong",
-                    },
-                    {
-                        case: {
-                            $and: [
-                                { $gt: ["$rank_used", "$open_rank"] },
-                                { $lte: ["$rank_used", "$close_rank"] },
-                            ],
-                        },
+                        case: { $and: [{ $gt: ["$rank_used", "$open_rank"] }, { $lte: ["$rank_used", "$close_rank"] }] },
                         then: "Good",
                     },
                     {
                         case: {
-                            $lte: [
-                                "$rank_used",
-                                {
-                                    $add: [
-                                        "$close_rank",
-                                        { $cond: [{ $in: ["$rank_type", [3, 4]] }, 500, 1200] },
-                                    ],
-                                },
-                            ],
+                            $lte: ["$rank_used", { $add: ["$close_rank", { $cond: [{ $in: ["$rank_type", [3, 4]] }, 500, 1200] }] }],
                         },
                         then: "Satisfactory",
                     },
@@ -205,9 +173,10 @@ const SCORE_STAGE = {
 
 const SORT_STAGE = { $sort: { score: -1, clz_tier: 1, branch_score: 1 } };
 const LIMIT_STAGE = { $limit: 300 };
-const OUTPUT_STAGE = { $project: { clz_name: 1, branch: 1, chance: 1 } };
+const OUTPUT_STAGE = { $project: { clz_name: 1, branch: 1, chance: 1, open_rank: 1, close_rank: 1, year: 1, round: 1, category: 1 } };
+const BLOCK_IIT_STAGE = { $match: { clz_type: { $ne: "IIT" } } };
 
-// Rank selection: has all 4 rank types (mains CRL, mains category, adv CRL, adv category)
+// Rank selectors
 const RANK_SELECT_ALL_FOUR = {
     $addFields: {
         rank_used: {
@@ -223,7 +192,6 @@ const RANK_SELECT_ALL_FOUR = {
     },
 };
 
-// Rank selection: mains only — rank_type 1 and 2
 const RANK_SELECT_MAINS_ONLY = {
     $addFields: {
         rank_used: {
@@ -237,7 +205,6 @@ const RANK_SELECT_MAINS_ONLY = {
     },
 };
 
-// Rank selection: OPEN with adv — rank_type 1 (mains CRL) and 3 (adv CRL)
 const RANK_SELECT_OPEN_WITH_ADV = {
     $addFields: {
         rank_used: {
@@ -251,7 +218,6 @@ const RANK_SELECT_OPEN_WITH_ADV = {
     },
 };
 
-// Rank selection: OPEN mains only — rank_type 1 only
 const RANK_SELECT_OPEN_MAINS_ONLY = {
     $addFields: {
         rank_used: {
@@ -264,214 +230,174 @@ const RANK_SELECT_OPEN_MAINS_ONLY = {
     },
 };
 
-// Block IITs — used when user has no advanced rank
-const BLOCK_IIT_STAGE = { $match: { clz_type: { $ne: "IIT" } } };
-
 // ─────────────────────────────────────────────────────────────────────────────
-// PIPELINE BUILDERS — one per condition, strictly separated
+// Pipeline builders
+// Gender is passed as dbGenders array into each pipeline's $match stage.
+// It is NOT stored in $set — it's only used as a filter, never referenced by later stages.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── CONDITION 2 ──────────────────────────────────────────────────────────────
-// JOSAA | category != "OPEN"
-// has ALL four ranks: crl_mains, cat_mains, crl_adv, cat_adv
-// → Can see IITs
-function buildPipeline_JOSAA_Category_WithAdv(user, filterMatch) {
+// Condition 2: JOSAA | non-OPEN | has all 4 ranks → sees IITs
+function buildPipeline_JOSAA_Category_WithAdv(user, dbGenders, filterMatch) {
     return [
         {
             $set: {
                 user_home_state: user.home_state,
-                user_gender: user.gender,
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
                 category_mains_rank: user.category_mains_rank,
                 crl_adv_rank: user.crl_adv_rank,
                 category_adv_rank: user.category_adv_rank,
-            },
+            }
         },
-        {
-            $match: {
-                gender: user.gender,
-                category: { $in: ["OPEN", user.category] },
-                ...filterMatch,
-            },
-        },
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN", user.category] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_ALL_FOUR,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE,
-        SORT_STAGE,
-        LIMIT_STAGE,
-        OUTPUT_STAGE,
+        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
     ];
 }
 
-// ── CONDITION 3 ──────────────────────────────────────────────────────────────
-// JOSAA | category != "OPEN"
-// has ONLY mains ranks: crl_mains, cat_mains  (no adv ranks)
-// → Cannot see IITs
-function buildPipeline_JOSAA_Category_NoAdv(user, filterMatch) {
+// Condition 3: JOSAA | non-OPEN | mains only → no IITs
+function buildPipeline_JOSAA_Category_NoAdv(user, dbGenders, filterMatch) {
     return [
         {
             $set: {
                 user_home_state: user.home_state,
-                user_gender: user.gender,
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
                 category_mains_rank: user.category_mains_rank,
-            },
+            }
         },
         BLOCK_IIT_STAGE,
-        {
-            $match: {
-                gender: user.gender,
-                category: { $in: ["OPEN", user.category] },
-                ...filterMatch,
-            },
-        },
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN", user.category] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE,
-        SORT_STAGE,
-        LIMIT_STAGE,
-        OUTPUT_STAGE,
+        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
     ];
 }
 
-// ── CONDITION 4 ──────────────────────────────────────────────────────────────
-// JOSAA | category == "OPEN"
-// has: crl_mains AND crl_adv
-// → Can see IITs
-function buildPipeline_JOSAA_Open_WithAdv(user, filterMatch) {
+// Condition 4: JOSAA | OPEN | crl_mains + crl_adv → sees IITs
+function buildPipeline_JOSAA_Open_WithAdv(user, dbGenders, filterMatch) {
     return [
         {
             $set: {
                 user_home_state: user.home_state,
-                user_gender: user.gender,
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
                 crl_adv_rank: user.crl_adv_rank,
-            },
+            }
         },
-        {
-            $match: {
-                gender: user.gender,
-                category: { $in: ["OPEN"] },
-                ...filterMatch,
-            },
-        },
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_OPEN_WITH_ADV,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE,
-        SORT_STAGE,
-        LIMIT_STAGE,
-        OUTPUT_STAGE,
+        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
     ];
 }
 
-// ── CONDITION 5 ──────────────────────────────────────────────────────────────
-// JOSAA | category == "OPEN"
-// has ONLY: crl_mains  (no adv rank)
-// → Cannot see IITs
-function buildPipeline_JOSAA_Open_NoAdv(user, filterMatch) {
+// Condition 5: JOSAA | OPEN | mains only → no IITs
+function buildPipeline_JOSAA_Open_NoAdv(user, dbGenders, filterMatch) {
     return [
         {
             $set: {
                 user_home_state: user.home_state,
-                user_gender: user.gender,
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
-            },
+            }
         },
         BLOCK_IIT_STAGE,
-        {
-            $match: {
-                gender: user.gender,
-                category: { $in: ["OPEN"] },
-                ...filterMatch,
-            },
-        },
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_OPEN_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE,
-        SORT_STAGE,
-        LIMIT_STAGE,
-        OUTPUT_STAGE,
+        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
     ];
 }
 
-// ── CONDITION 6 ──────────────────────────────────────────────────────────────
-// CSAB or TEST | category == "OPEN"
-// has: crl_mains
-// → IITs always blocked in CSAB/TEST
-function buildPipeline_CSAB_TEST_Open(user, filterMatch) {
+// Condition 6 (CSAB only): CSAB | OPEN | crl_mains → no IITs ever
+function buildPipeline_CSAB_Open(user, dbGenders, filterMatch) {
     return [
         {
             $set: {
                 user_home_state: user.home_state,
-                user_gender: user.gender,
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
-            },
+            }
         },
         BLOCK_IIT_STAGE,
-        {
-            $match: {
-                gender: user.gender,
-                category: { $in: ["OPEN"] },
-                ...filterMatch,
-            },
-        },
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_OPEN_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE,
-        SORT_STAGE,
-        LIMIT_STAGE,
-        OUTPUT_STAGE,
+        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
     ];
 }
 
-// ── CONDITION 7 ──────────────────────────────────────────────────────────────
-// CSAB or TEST | category != "OPEN"
-// has: crl_mains AND cat_mains
-// → IITs always blocked in CSAB/TEST
-function buildPipeline_CSAB_TEST_Category(user, filterMatch) {
+// Condition 7 (CSAB only): CSAB | non-OPEN | crl_mains + cat_mains → no IITs ever
+function buildPipeline_CSAB_Category(user, dbGenders, filterMatch) {
     return [
         {
             $set: {
                 user_home_state: user.home_state,
-                user_gender: user.gender,
                 user_category: user.category,
                 crl_mains_rank: user.crl_mains_rank,
                 category_mains_rank: user.category_mains_rank,
-            },
+            }
         },
         BLOCK_IIT_STAGE,
-        {
-            $match: {
-                gender: user.gender,
-                category: { $in: ["OPEN", user.category] },
-                ...filterMatch,
-            },
-        },
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN", user.category] }, ...filterMatch } },
         QUOTA_ELIGIBILITY_STAGE,
         RANK_SELECT_MAINS_ONLY,
         CHANCE_CALC_STAGE,
-        SCORE_STAGE,
-        SORT_STAGE,
-        LIMIT_STAGE,
-        OUTPUT_STAGE,
+        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+    ];
+}
+
+// ── TEST pipelines (JOSAA collection, no IITs, test_mains_crl only) ───────────
+
+// TEST | OPEN category
+function buildPipeline_TEST_OPEN_CATEGORY(user, dbGenders, filterMatch) {
+    return [
+        {
+            $set: {
+                user_home_state: user.home_state,
+                user_category: user.category,
+                crl_mains_rank: user.test_mains_crl,
+            }
+        },
+        BLOCK_IIT_STAGE,
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
+        QUOTA_ELIGIBILITY_STAGE,
+        RANK_SELECT_OPEN_MAINS_ONLY,
+        CHANCE_CALC_STAGE,
+        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
+    ];
+}
+
+// TEST | non-OPEN category
+function buildPipeline_TEST_WITH_CATEGORY(user, dbGenders, filterMatch) {
+    return [
+        {
+            $set: {
+                user_home_state: user.home_state,
+                user_category: user.category,
+                crl_mains_rank: user.test_mains_crl,
+            }
+        },
+        BLOCK_IIT_STAGE,
+        { $match: { gender: { $in: dbGenders }, category: { $in: ["OPEN"] }, ...filterMatch } },
+        QUOTA_ELIGIBILITY_STAGE,
+        RANK_SELECT_MAINS_ONLY,
+        CHANCE_CALC_STAGE,
+        SCORE_STAGE, SORT_STAGE, LIMIT_STAGE, OUTPUT_STAGE,
     ];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pipeline selector
-// Returns { pipeline } on success or { pipeline: null, error: string } on fail
+// Pipeline selector — fully separated by mode
 // ─────────────────────────────────────────────────────────────────────────────
-function selectPipeline(mode, user, filterMatch) {
+function selectPipeline(mode, user, dbGenders, filterMatch) {
     const isOpen = user.category === "OPEN";
     const hasCrlMains = user.crl_mains_rank > 0;
     const hasCatMains = user.category_mains_rank > 0;
@@ -479,84 +405,52 @@ function selectPipeline(mode, user, filterMatch) {
     const hasCatAdv = user.category_adv_rank > 0;
     const hasMainsRanks = hasCrlMains && hasCatMains;
     const hasBothAdv = hasCrlAdv && hasCatAdv;
+    const hasTestRank = user.test_mains_crl > 0;
 
-    // ── JOSAA conditions ────────────────────────────────────────────────────
+    // ── JOSAA ────────────────────────────────────────────────────────────────
     if (mode === "JOSAA") {
         if (!isOpen) {
-            // Condition 2: non-OPEN + all four ranks (mains + adv)
-            if (hasMainsRanks && hasBothAdv) {
-                return { pipeline: buildPipeline_JOSAA_Category_WithAdv(user, filterMatch) };
-            }
-            // Condition 3: non-OPEN + mains only (no adv ranks at all)
-            if (hasMainsRanks) {
-                return { pipeline: buildPipeline_JOSAA_Category_NoAdv(user, filterMatch) };
-            }
-            return {
-                pipeline: null,
-                error: "Insufficient rank data for JOSAA (non-OPEN). Need at least crl_mains_rank and category_mains_rank.",
-            };
+            if (hasMainsRanks && hasBothAdv) return { pipeline: buildPipeline_JOSAA_Category_WithAdv(user, dbGenders, filterMatch) };
+            if (hasMainsRanks) return { pipeline: buildPipeline_JOSAA_Category_NoAdv(user, dbGenders, filterMatch) };
+            return { pipeline: null, error: "Insufficient rank data for JOSAA (non-OPEN). Need crl_mains_rank and category_mains_rank." };
         }
-
-        if (isOpen) {
-            // Condition 4: OPEN + crl_mains + crl_adv
-            if (hasCrlMains && hasCrlAdv) {
-                return { pipeline: buildPipeline_JOSAA_Open_WithAdv(user, filterMatch) };
-            }
-            // Condition 5: OPEN + crl_mains only (no adv rank)
-            if (hasCrlMains) {
-                return { pipeline: buildPipeline_JOSAA_Open_NoAdv(user, filterMatch) };
-            }
-            return {
-                pipeline: null,
-                error: "Insufficient rank data for JOSAA (OPEN). Need at least crl_mains_rank.",
-            };
-        }
+        // OPEN
+        if (hasCrlMains && hasCrlAdv) return { pipeline: buildPipeline_JOSAA_Open_WithAdv(user, dbGenders, filterMatch) };
+        if (hasCrlMains) return { pipeline: buildPipeline_JOSAA_Open_NoAdv(user, dbGenders, filterMatch) };
+        return { pipeline: null, error: "Insufficient rank data for JOSAA (OPEN). Need crl_mains_rank." };
     }
 
-    // ── CSAB and TEST conditions ────────────────────────────────────────────
-    if (mode === "CSAB" || mode === "TEST") {
+    // ── CSAB ─────────────────────────────────────────────────────────────────
+    if (mode === "CSAB") {
         if (isOpen) {
-            // Condition 6: OPEN + crl_mains
-            if (hasCrlMains) {
-                return { pipeline: buildPipeline_CSAB_TEST_Open(user, filterMatch) };
-            }
-            return {
-                pipeline: null,
-                error: "Insufficient rank data for CSAB/TEST (OPEN). Need crl_mains_rank.",
-            };
+            if (hasCrlMains) return { pipeline: buildPipeline_CSAB_Open(user, dbGenders, filterMatch) };
+            return { pipeline: null, error: "Insufficient rank data for CSAB (OPEN). Need crl_mains_rank." };
         }
-
-        if (!isOpen) {
-            // Condition 7: non-OPEN + crl_mains + cat_mains
-            if (hasMainsRanks) {
-                return { pipeline: buildPipeline_CSAB_TEST_Category(user, filterMatch) };
-            }
-            return {
-                pipeline: null,
-                error: "Insufficient rank data for CSAB/TEST (non-OPEN). Need crl_mains_rank and category_mains_rank.",
-            };
-        }
+        if (hasMainsRanks) return { pipeline: buildPipeline_CSAB_Category(user, dbGenders, filterMatch) };
+        return { pipeline: null, error: "Insufficient rank data for CSAB (non-OPEN). Need crl_mains_rank and category_mains_rank." };
     }
 
-    return { pipeline: null, error: "Could not determine a valid pipeline for the given inputs." };
+    // ── TEST ─────────────────────────────────────────────────────────────────
+    if (mode === "TEST") {
+        if (!hasTestRank) return { pipeline: null, error: "Insufficient rank data for TEST. Need test_mains_crl." };
+        if (isOpen) return { pipeline: buildPipeline_TEST_OPEN_CATEGORY(user, dbGenders, filterMatch) };
+        return { pipeline: buildPipeline_TEST_WITH_CATEGORY(user, dbGenders, filterMatch) };
+    }
+
+    return { pipeline: null, error: "Could not determine pipeline." };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fetch user from DynamoDB  (fb_uid = primary key)
+// DynamoDB fetch
 // ─────────────────────────────────────────────────────────────────────────────
 async function fetchUserFromDynamo(fb_uid) {
     const command = new GetItemCommand({
         TableName: process.env.DYNAMODB_TABLE_NAME,
-        Key: {
-            fb_uid: { S: fb_uid },
-        },
+        Key: { fb_uid: { S: fb_uid } },
     });
-
     const response = await dynamo.send(command);
     if (!response.Item) return null;
-
     const item = response.Item;
-
     return {
         josaa_credits: item.josaa_credits?.BOOL ?? false,
         csab_credits: item.csab_credits?.BOOL ?? false,
@@ -572,118 +466,94 @@ async function fetchUserFromDynamo(fb_uid) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST  /api/college_search
+// POST /api/college_search
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request) {
     try {
-
-        // ── STEP 1: Parse body ────────────────────────────────────────────
+        // 1. Parse body
         let body;
-        try {
-            body = await request.json();
-        } catch {
-            return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-        }
+        try { body = await request.json(); }
+        catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
 
         const { jwt, mode, round } = body;
 
-        // ── STEP 2: Validate JWT → get Firebase UID ───────────────────────
-        if (!jwt) {
-            return NextResponse.json({ error: "Missing jwt" }, { status: 401 });
-        }
-
+        // 2. Verify JWT
+        if (!jwt) return NextResponse.json({ error: "Missing jwt" }, { status: 401 });
         let fb_uid;
-        try {
-            const decoded = await admin.auth().verifyIdToken(jwt);
-            fb_uid = decoded.uid;
-        } catch {
-            return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-        }
+        try { const decoded = await admin.auth().verifyIdToken(jwt); fb_uid = decoded.uid; }
+        catch { return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 }); }
 
-        // ── STEP 3: Validate mode ─────────────────────────────────────────
-        if (!mode || !VALID_MODE_IDS.has(mode)) {
-            return NextResponse.json(
-                { error: `Invalid mode. Must be one of: ${[...VALID_MODE_IDS].join(", ")}` },
-                { status: 400 }
-            );
-        }
+        // 3. Validate mode
+        if (!mode || !VALID_MODE_IDS.has(mode))
+            return NextResponse.json({ error: `Invalid mode. Must be one of: ${[...VALID_MODE_IDS].join(", ")}` }, { status: 400 });
 
-        // ── STEP 4: Validate round ────────────────────────────────────────
-        if (round === undefined || round === null) {
+        // 4. Validate round
+        if (round === undefined || round === null)
             return NextResponse.json({ error: "round is required" }, { status: 400 });
-        }
-
         const roundInt = parseInt(round, 10);
         const { min, max } = ROUND_LIMITS[mode];
+        if (isNaN(roundInt) || roundInt < min || roundInt > max)
+            return NextResponse.json({ error: `Invalid round for ${mode}. Must be ${min}–${max}.` }, { status: 400 });
 
-        if (isNaN(roundInt) || roundInt < min || roundInt > max) {
-            return NextResponse.json(
-                { error: `Invalid round for ${mode}. Must be an integer between ${min} and ${max}.` },
-                { status: 400 }
-            );
-        }
-
-        // ── STEP 5: Decode + validate filter ID arrays ────────────────────
+        // 5. Decode filters
         const filterResult = decodeAndValidateFilters(body);
-        if (filterResult.errors.length > 0) {
+        if (filterResult.errors.length > 0)
             return NextResponse.json({ error: filterResult.errors.join("; ") }, { status: 400 });
-        }
         const { collegeTypes, degreeTypes, branches } = filterResult;
 
-        // ── STEP 6: Fetch user from DynamoDB ──────────────────────────────
+        // 6. Fetch user from DynamoDB
         let user;
-        try {
-            user = await fetchUserFromDynamo(fb_uid);
-        } catch (e) {
-            console.error("[college_search] DynamoDB error:", e);
-            return NextResponse.json({ error: "Failed to fetch user data" }, { status: 500 });
-        }
+        try { user = await fetchUserFromDynamo(fb_uid); }
+        catch (e) { console.error("[college_search] DynamoDB error:", e); return NextResponse.json({ error: "Failed to fetch user data" }, { status: 500 }); }
+        if (!user) return NextResponse.json({ error: "User profile not found" }, { status: 404 });
 
-        if (!user) {
-            return NextResponse.json({ error: "User profile not found" }, { status: 404 });
-        }
-
-        // ── STEP 7: Check subscription credits ────────────────────────────
-        if (mode === "JOSAA" && !user.josaa_credits) {
+        // 7. Check subscription credits
+        if (mode === "JOSAA" && !user.josaa_credits)
             return NextResponse.json({ error: "JOSAA subscription required" }, { status: 403 });
-        }
-        if (mode === "CSAB" && !user.csab_credits) {
+        if (mode === "CSAB" && !user.csab_credits)
             return NextResponse.json({ error: "CSAB subscription required" }, { status: 403 });
-        }
-        if (mode === "TEST" && !user.josaa_credits && !user.csab_credits) {
-            return NextResponse.json(
-                { error: "An active subscription (JOSAA or CSAB) is required for TEST mode" },
-                { status: 403 }
-            );
-        }
+        if (mode === "TEST" && !user.josaa_credits && !user.csab_credits)
+            return NextResponse.json({ error: "An active subscription (JOSAA or CSAB) is required for TEST mode" }, { status: 403 });
 
-        // ── STEP 8: Build frontend filter $match object ───────────────────
+        // 8. Map DynamoDB gender → MongoDB gender values  ← THE FIX
+        const dbGenders = mapGenderToDbValues(user.gender);
+
+        // 9. Build filter match
         const filterMatch = buildFilterMatch(roundInt, collegeTypes, degreeTypes, branches);
 
-        // ── STEP 9: Select pipeline based on mode + user data ─────────────
-        const { pipeline, error: pipelineError } = selectPipeline(mode, user, filterMatch);
+        // 10. Select pipeline
+        const { pipeline, error: pipelineError } = selectPipeline(mode, user, dbGenders, filterMatch);
+        if (!pipeline) return NextResponse.json({ error: pipelineError }, { status: 422 });
 
-        if (!pipeline) {
-            return NextResponse.json({ error: pipelineError }, { status: 422 });
-        }
-
-        // ── STEP 10: Run aggregation against MongoDB ──────────────────────
+        // 11. Run aggregation
+        // JOSAA → MONGODB_COLLECTION_JOSAA
+        // TEST  → MONGODB_COLLECTION_JOSAA  (same data, different rank logic)
+        // CSAB  → MONGODB_COLLECTION_CSAB
         let raw;
         try {
+            const collectionName = (mode === "CSAB")
+                ? process.env.MONGODB_COLLECTION_CSAB
+                : process.env.MONGODB_COLLECTION_JOSAA;
+
             const client = await getMongoClient();
             const db = client.db(process.env.MONGODB_DB_NAME);
-            const collection = db.collection(process.env.MONGODB_COLLECTION_NAME);
+            const collection = db.collection(collectionName);
             raw = await collection.aggregate(pipeline).toArray();
         } catch (e) {
             console.error("[college_search] MongoDB error:", e);
             return NextResponse.json({ error: "Database query failed" }, { status: 500 });
         }
 
-        // ── STEP 11: Shape and return response ────────────────────────────
+        // 12. Shape response
         const results = raw.map(doc => ({
             college_name: doc.clz_name ?? "",
             branch: doc.branch ?? "",
             probability: doc.chance ?? "",
+            round: doc.round ?? "",
+            year: doc.year ?? "",
+            opening: doc.open_rank ?? "",
+            closing: doc.close_rank ?? "",
+            category: doc.category ?? "",
         }));
 
         return NextResponse.json({ results }, { status: 200 });
