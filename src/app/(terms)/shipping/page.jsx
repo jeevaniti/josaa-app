@@ -75,7 +75,7 @@ export default function ShippingPage() {
                         For any questions related to access or delivery of services, visit our{" "}
                         <Link href="/contact" style={styles.link}>Contact Page</Link>{" "}
                         or email us at{" "}
-                        <a href="mailto:support@josaaMaster.in" style={styles.link}>support@josaamaster.in</a>.
+                        <a href="mailto:josaamaster@gmail.com" style={styles.link}>josaamaster@gmail.com</a>.
                     </p>
                 </Section>
             </div>

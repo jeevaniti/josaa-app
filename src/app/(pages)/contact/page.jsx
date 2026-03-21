@@ -349,7 +349,7 @@ export default function HelpSupportPage() {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText("support@josaamaster.in");
+    navigator.clipboard.writeText("josaamaster@gmail.com");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -372,7 +372,7 @@ export default function HelpSupportPage() {
 
             <div>
               <p className="hs-contact-value">
-                support@josaamaster.in
+                josaamaster@gmail.com
                 <button
                   onClick={handleCopy}
                   title="Copy email"

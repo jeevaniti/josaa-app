@@ -90,7 +90,7 @@ export default function TermsPage() {
                 <Section number="9" title="Contact">
                     <p>
                         For questions or concerns regarding these Terms, contact us at:{" "}
-                        <a href="mailto:support@joSAA master.in" style={styles.link}>support@josaaMaster.in</a>
+                        <a href="mailto:josaamaster@gmail.com" style={styles.link}>josaamaster@gmail.com</a>
                         {" "}or visit our <Link href="/contact" style={styles.link}>Contact Page</Link>.
                     </p>
                 </Section>

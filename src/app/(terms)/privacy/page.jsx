@@ -116,7 +116,7 @@ export default function PrivacyPage() {
                 <Section number="10" title="Contact">
                     <p>
                         For privacy concerns or data requests, contact us at:{" "}
-                        <a href="mailto:support@josaaMaster.in" style={styles.link}>support@josaamaster.in</a>
+                        <a href="mailto:josaamaster@gmail.com" style={styles.link}>josaamaster@gmail.com</a>
                         {" "}or visit our <Link href="/contact" style={styles.link}>Contact Page</Link>.
                     </p>
                 </Section>

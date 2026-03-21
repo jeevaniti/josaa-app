@@ -78,7 +78,7 @@ export default function RefundPage() {
                 <Section number="7" title="Contact">
                     <p>
                         For payment issues, reach out to us at:{" "}
-                        <a href="mailto:support@josaaMaster.in" style={styles.link}>support@josaamaster.in</a>
+                        <a href="mailto:josaamaster@gmail.com" style={styles.link}>josaamaster@gmail.com</a>
                         {" "}or visit our <Link href="/contact" style={styles.link}>Contact Page</Link>.
                         Please include your Order ID and payment screenshot for faster resolution.
                     </p>
