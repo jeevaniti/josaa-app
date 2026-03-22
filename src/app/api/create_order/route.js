@@ -41,9 +41,15 @@ import { admin } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 
+// const razorpay = new Razorpay({
+//     key_id: process.env.RAZORPAY_KEY_ID,
+//     key_secret: process.env.RAZORPAY_KEY_SECRET,
+// });
+
+
 const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
+    key_id: process.env.RAZORPAY_LIVE_KEY_ID,
+    key_secret: process.env.RAZORPAY_LIVE_KEY_SECRET,
 });
 
 // Plans with prices in paise (multiply by 100)
