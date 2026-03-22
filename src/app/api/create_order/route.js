@@ -123,7 +123,8 @@ export async function POST(req) {
             orderId: order.id,
             amount: order.amount,
             currency: order.currency,
-            key: process.env.RAZORPAY_KEY_ID,
+            // key: process.env.RAZORPAY_KEY_ID,
+            key: process.env.RAZORPAY_LIVE_KEY_ID,
             plan,
             planLabel: selectedPlan.label,
         });
