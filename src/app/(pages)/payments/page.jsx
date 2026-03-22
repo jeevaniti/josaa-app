@@ -708,7 +708,7 @@ const PLANS = [
       "Round-wise chance analysis",
       "Opening & closing rank data",
       "Branch-level filtering",
-      "Non-refundable",
+      // "Non-refundable",
     ],
   },
   {
@@ -721,7 +721,7 @@ const PLANS = [
       "Everything of JOSAA Only Plan",
       "CSAB special round",
       "Best value",
-      "Non-refundable",
+      // "Non-refundable",
     ],
   },
   {
@@ -735,7 +735,7 @@ const PLANS = [
       "NIT, IIIT & GFTI coverage",
       "Category-wise filtering",
       "Home state quota analysis",
-      "Non-refundable",
+      // "Non-refundable",
     ],
   },
 ];
@@ -821,7 +821,7 @@ function ConfirmDialog({ plan, onClose, onConfirm, loading }) {
                 <a href="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a>
                 {" "}and the{" "}
                 <a href="/refund" target="_blank" rel="noopener noreferrer">Cancellation &amp; Refund Policy</a>.
-                I understand this purchase is <strong>non-refundable</strong> once access is granted.
+                {/* I understand this purchase is <strong>non-refundable</strong> once access is granted. */}
               </span>
             </label>
 
