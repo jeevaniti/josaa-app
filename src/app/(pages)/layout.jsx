@@ -90,9 +90,9 @@ const CSS = `
     color: white;
     font-weight: 900;
     font-size: 14px;
-    font-style: italic;
     flex-shrink: 0;
-    font-family: 'Instrument Serif', Georgia, serif;
+    font-style: Italic;
+    font-family: 'Inter';
   }
 
   .sidebar-logo-text {

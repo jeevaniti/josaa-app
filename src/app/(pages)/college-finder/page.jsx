@@ -2365,7 +2365,7 @@ const styles = `
 
     .fc-round-btn .round-full  { display: none; }
     .fc-round-btn .round-short { display: inline; }
-    .fc-round-btn { padding: 6px 10px; }
+    .fc-round-btn { padding: 9px 14px; font-size: 13px; }
     .fc-round-bar { gap: 8px; padding: 10px 16px; }
     .fc-btn-generate-inline { font-size: 11px; padding: 6px 12px; }
 
@@ -2383,12 +2383,13 @@ const styles = `
     .fc-mobile-meta   { display: none; }
     .fc-category-cell { display: block; }
     .fc-badge-cell    { display: block; }
+    .fc-filter-title--mobile { display: none; }
   }
 
   @media (max-width: 480px) {
     .fc-filter-groups { grid-template-columns: 1fr; }
     .fc-popup { padding: 24px 18px; }
-    .fc-round-btn { padding: 6px 8px; font-size: 11px; }
+    .fc-round-btn { padding: 9px 12px; font-size: 13px; }
     .fc-round-bar { flex-wrap: wrap; row-gap: 8px; }
     .fc-btn-generate-inline { width: 100%; justify-content: center; }
   }
@@ -2743,6 +2744,7 @@ export default function FindCollegePage() {
           <>
             {/* Filters card */}
             <div className="fc-filters-card">
+              <p className="fc-filter-title fc-filter-title--mobile">Filters</p>
               <div className="fc-filter-header" onClick={() => setFilterOpen(o => !o)}>
                 <button
                   className={`fc-filter-toggle-btn${filterOpen ? " open" : ""}`}
