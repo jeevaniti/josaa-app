@@ -2,8 +2,9 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import ReCAPTCHA from "react-google-recaptcha";
 import {
   createUserWithEmailAndPassword,
   signInWithPopup,
@@ -264,21 +265,10 @@ const styles = `
     width: 100%;
   }
 
-  .form-input:focus {
-    border-color: #2563EB;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
-  }
-
+  .form-input:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
   .form-input::placeholder { color: #94a3b8; }
   .form-input.error { border-color: #ef4444; }
   .form-input.error:focus { box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
-
-  .password-hint {
-    font-size: 11px;
-    color: #94a3b8;
-    font-weight: 500;
-    margin-top: 2px;
-  }
 
   .error-msg {
     font-size: 12px;
@@ -288,6 +278,25 @@ const styles = `
     border: 1px solid #fecaca;
     border-radius: 6px;
     padding: 9px 12px;
+    margin-top: 2px;
+  }
+
+  /* reCAPTCHA wrapper — centers the widget and keeps it responsive */
+  .recaptcha-wrap {
+    display: flex;
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+
+  .recaptcha-wrap > div {
+    max-width: 100%;
+  }
+
+  @media (max-width: 340px) {
+    .recaptcha-wrap {
+      transform: scale(0.88);
+      transform-origin: left center;
+    }
   }
 
   .submit-btn {
@@ -359,6 +368,10 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState(null);
+
+  // Ref so we can programmatically reset the widget on error
+  const recaptchaRef = useRef(null);
 
   // If already logged in → redirect to dashboard immediately
   useEffect(() => {
@@ -382,9 +395,6 @@ export default function SignupPage() {
   }
 
   // ── Creates the DynamoDB row via /api/create-user ─────────────────────────
-  // Must be called after EVERY successful Firebase sign-up/sign-in,
-  // for both email and Google flows. Without this, fetch_user_details
-  // returns 404 because the DynamoDB record doesn't exist yet.
   async function createUserAPI(user) {
     const token = await user.getIdToken();
     await fetch("/api/create-user", {
@@ -402,17 +412,43 @@ export default function SignupPage() {
     if (password !== confirm) { setError("Passwords don't match."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
 
+    // ── CAPTCHA gate ──────────────────────────────────────────────────────────
+    if (!captchaToken) {
+      setError("Please complete the CAPTCHA verification.");
+      return;
+    }
+
     setLoading(true);
     try {
+      // 1️⃣  Verify CAPTCHA token server-side first
+      const captchaRes = await fetch("/api/verify-captcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      const captchaData = await captchaRes.json();
+
+      if (!captchaData.success) {
+        setError("CAPTCHA verification failed. Please try again.");
+        recaptchaRef.current?.reset();
+        setCaptchaToken(null);
+        setLoading(false);
+        return;
+      }
+
+      // 2️⃣  CAPTCHA passed — proceed with Firebase sign-up
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(cred.user, { displayName: name.trim() });
 
-      // Create DynamoDB row — this is what was missing
+      // Create DynamoDB row
       await createUserAPI(cred.user);
 
       router.push("/dashboard");
     } catch (err) {
       setError(friendlyError(err.code));
+      // Reset CAPTCHA so user can re-verify after an error
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -424,7 +460,7 @@ export default function SignupPage() {
     try {
       const cred = await signInWithPopup(auth, googleProvider);
 
-      // Create DynamoDB row — this was also missing for Google sign-up
+      // Create DynamoDB row
       await createUserAPI(cred.user);
 
       router.push("/dashboard");
@@ -507,18 +543,6 @@ export default function SignupPage() {
               </div>
 
               <form className="auth-form" onSubmit={handleSignup}>
-                {/* <div className="form-field">
-                <label className="form-label">Full Name</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="Arjun Kumar"
-                  value={name}
-                  onChange={e => { setName(e.target.value); setError(""); }}
-                  autoComplete="name"
-                />
-              </div> */}
-
                 <div className="form-field">
                   <label className="form-label">Email</label>
                   <input
@@ -554,6 +578,16 @@ export default function SignupPage() {
                       autoComplete="new-password"
                     />
                   </div>
+                </div>
+
+                {/* ── reCAPTCHA v2 checkbox ── */}
+                <div className="recaptcha-wrap">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                    onChange={(token) => { setCaptchaToken(token); setError(""); }}
+                    onExpired={() => setCaptchaToken(null)}
+                  />
                 </div>
 
                 {error && <p className="error-msg">{error}</p>}

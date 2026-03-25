@@ -947,7 +947,8 @@ export default function SetRankPage() {
 
       setUserDetails(data);
     } catch (err) {
-      setFetchError(err.message || "Failed to fetch user details.");
+      // setFetchError(err.message || "Failed to fetch user details.");
+      setFetchError("Failed to fetch user details.");
     } finally {
       setLoading(false);
     }
@@ -1022,6 +1023,7 @@ export default function SetRankPage() {
         await fetchUserDetails();
       }, 1200);
     } catch (err) {
+      // setDialogError("Failed to save. Please try again.");
       setDialogError(err.message || "Failed to save. Please try again.");
     } finally {
       setDialogSubmitting(false);
@@ -1051,6 +1053,7 @@ export default function SetRankPage() {
         await fetchUserDetails();
       }, 1200);
     } catch (err) {
+      // setDialogError("Failed to save. Please try again.");
       setDialogError(err.message || "Failed to save. Please try again.");
     } finally {
       setDialogSubmitting(false);

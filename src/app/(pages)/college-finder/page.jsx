@@ -1493,7 +1493,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth } from "@/lib/firebase";
 import { getIdToken } from "firebase/auth";
 
@@ -2457,6 +2457,10 @@ export default function FindCollegePage() {
   // ── Paywall ───────────────────────────────────────────────────────────────
   const [paywallFor, setPaywallFor] = useState(null);
 
+  // ── Generate cooldown (4s disable after click) ────────────────────────────
+  const [generateCooldown, setGenerateCooldown] = useState(0);
+  const cooldownRef = useRef(null);
+
   // ── Fetch user profile on mount ───────────────────────────────────────────
   useEffect(() => {
     async function fetchDetails() {
@@ -2575,8 +2579,25 @@ export default function FindCollegePage() {
     }
   }
 
+  // ── Cooldown helper ───────────────────────────────────────────────────────
+  function startCooldown() {
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    setGenerateCooldown(4);
+    cooldownRef.current = setInterval(() => {
+      setGenerateCooldown(prev => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current);
+          cooldownRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
   // ── Generate: always starts from page 1 ──────────────────────────────────
   function handleGenerate() {
+    startCooldown();
     setResults(null);
     setPage(1);
     setTotalPages(1);
@@ -2689,10 +2710,12 @@ export default function FindCollegePage() {
             <button
               className="fc-btn-generate"
               onClick={handleGenerate}
-              disabled={loading || !canGenerate}
+              disabled={loading || !canGenerate || generateCooldown > 0}
             >
               {loading ? (
                 <><div className="fc-spinner" /> Searching...</>
+              ) : generateCooldown > 0 ? (
+                <>{generateCooldown}s</>
               ) : (
                 <>
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -2846,10 +2869,12 @@ export default function FindCollegePage() {
                   <button
                     className="fc-btn-generate-inline"
                     onClick={handleGenerate}
-                    disabled={loading || !canGenerate}
+                    disabled={loading || !canGenerate || generateCooldown > 0}
                   >
                     {loading ? (
                       <><div className="fc-spinner" style={{ width: 13, height: 13 }} /> Searching...</>
+                    ) : generateCooldown > 0 ? (
+                      <>{generateCooldown}s</>
                     ) : (
                       <>
                         <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">

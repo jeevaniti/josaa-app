@@ -2,13 +2,13 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import ReCAPTCHA from "react-google-recaptcha";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -147,6 +147,27 @@ const styles = `
     border-radius: 6px; padding: 9px 12px; margin-top: 2px;
   }
 
+  /* reCAPTCHA wrapper — centers the widget and keeps it responsive */
+  .recaptcha-wrap {
+    display: flex;
+    justify-content: flex-start;
+    /* The reCAPTCHA iframe has a fixed width of 304px; on very small screens
+       we scale it down so it never overflows the card. */
+    overflow: hidden;
+  }
+
+  .recaptcha-wrap > div {
+    /* Clamp to container width on tiny phones */
+    max-width: 100%;
+  }
+
+  @media (max-width: 340px) {
+    .recaptcha-wrap {
+      transform: scale(0.88);
+      transform-origin: left center;
+    }
+  }
+
   .submit-btn {
     width: 100%; padding: 11.5px 16px; background: #0F172A; color: white;
     border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
@@ -187,6 +208,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState(null);
+
+  // Ref so we can programmatically reset the widget on error
+  const recaptchaRef = useRef(null);
 
   // ✅ If user is already logged in → kick to dashboard, never show login form
   useEffect(() => {
@@ -223,14 +248,42 @@ export default function LoginPage() {
   async function handleEmailLogin(e) {
     e.preventDefault();
     setError("");
+
     if (!email || !password) { setError("Please fill in all fields."); return; }
+
+    // ── CAPTCHA gate ──────────────────────────────────────────────────────────
+    if (!captchaToken) {
+      setError("Please complete the CAPTCHA verification.");
+      return;
+    }
+
     setLoading(true);
     try {
+      // 1️⃣  Verify CAPTCHA token server-side first
+      const captchaRes = await fetch("/api/verify-captcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      const captchaData = await captchaRes.json();
+
+      if (!captchaData.success) {
+        setError("CAPTCHA verification failed. Please try again.");
+        recaptchaRef.current?.reset();
+        setCaptchaToken(null);
+        setLoading(false);
+        return;
+      }
+
+      // 2️⃣  CAPTCHA passed — proceed with Firebase sign-in
       const cred = await signInWithEmailAndPassword(auth, email, password);
       await createUserAPI(cred.user);
       router.push("/dashboard");
     } catch (err) {
       setError(friendlyError(err.code));
+      // Reset CAPTCHA so user can re-verify after an error
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -330,6 +383,17 @@ export default function LoginPage() {
                   autoComplete="current-password"
                 />
               </div>
+
+              {/* ── reCAPTCHA v2 checkbox ── */}
+              <div className="recaptcha-wrap">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                  onChange={(token) => { setCaptchaToken(token); setError(""); }}
+                  onExpired={() => setCaptchaToken(null)}
+                />
+              </div>
+
               {error && <p className="error-msg">{error}</p>}
               <button className="submit-btn" type="submit" disabled={loading || googleLoading}>
                 {loading ? <><div className="spinner" /> Signing in…</> : "Sign in →"}

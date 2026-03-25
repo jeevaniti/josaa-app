@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /set-rank
+Disallow: /college-finder
+Disallow: /contact
+Disallow: /payments
