@@ -5,3 +5,5 @@ Disallow: /set-rank
 Disallow: /college-finder
 Disallow: /contact
 Disallow: /payments
+
+Sitemap: https://josaamaster.in/sitemap.xml
