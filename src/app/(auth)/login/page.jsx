@@ -2,11 +2,9 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import ReCAPTCHA from "react-google-recaptcha";
 import {
-  signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -109,11 +107,13 @@ const styles = `
   .auth-card-sub a:hover { text-decoration: underline; }
 
   .google-btn {
-    width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
-    padding: 11px 16px; background: white; border: 1.5px solid #E2E8F0; border-radius: 8px;
+    width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 13px 16px;
+    background: white; border: 1.5px solid #E2E8F0; border-radius: 8px;
     font-size: 13.5px; font-weight: 700; color: #0F172A; cursor: pointer;
     transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-    font-family: 'Open Sans', sans-serif; margin-bottom: 20px;
+    font-family: 'Open Sans', sans-serif;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
 
@@ -121,68 +121,16 @@ const styles = `
   .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
   .google-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
-  .divider { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .divider-line { flex: 1; height: 1px; background: #E2E8F0; }
-  .divider-text { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
-
-  .auth-form { display: flex; flex-direction: column; gap: 14px; }
-  .form-field { display: flex; flex-direction: column; gap: 6px; }
-  .form-label { font-size: 12px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.06em; }
-
-  .form-input {
-    padding: 10px 13px; border: 1.5px solid #E2E8F0; border-radius: 7px;
-    font-size: 14px; font-weight: 500; color: #0F172A; background: white;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    font-family: 'Open Sans', sans-serif; outline: none; width: 100%;
-  }
-
-  .form-input:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-  .form-input::placeholder { color: #94a3b8; }
-  .form-input.error { border-color: #ef4444; }
-  .form-input.error:focus { box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
-
   .error-msg {
     font-size: 12px; color: #ef4444; font-weight: 600;
     background: #fef2f2; border: 1px solid #fecaca;
-    border-radius: 6px; padding: 9px 12px; margin-top: 2px;
+    border-radius: 6px; padding: 9px 12px; margin-top: 16px;
   }
-
-  /* reCAPTCHA wrapper — centers the widget and keeps it responsive */
-  .recaptcha-wrap {
-    display: flex;
-    justify-content: flex-start;
-    /* The reCAPTCHA iframe has a fixed width of 304px; on very small screens
-       we scale it down so it never overflows the card. */
-    overflow: hidden;
-  }
-
-  .recaptcha-wrap > div {
-    /* Clamp to container width on tiny phones */
-    max-width: 100%;
-  }
-
-  @media (max-width: 340px) {
-    .recaptcha-wrap {
-      transform: scale(0.88);
-      transform-origin: left center;
-    }
-  }
-
-  .submit-btn {
-    width: 100%; padding: 11.5px 16px; background: #0F172A; color: white;
-    border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
-    transition: background 0.15s, transform 0.1s; font-family: 'Open Sans', sans-serif;
-    margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
-  }
-
-  .submit-btn:hover { background: #1e293b; }
-  .submit-btn:active { transform: scale(0.99); }
-  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
   .spinner {
     width: 16px; height: 16px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: white; border-radius: 50%;
+    border: 2px solid rgba(0,0,0,0.15);
+    border-top-color: #0F172A; border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
 
@@ -199,94 +147,32 @@ const styles = `
 `;
 
 const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
-  const [captchaToken, setCaptchaToken] = useState(null);
 
-  // Ref so we can programmatically reset the widget on error
-  const recaptchaRef = useRef(null);
-
-  // ✅ If user is already logged in → kick to dashboard, never show login form
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        router.replace("/dashboard");
-      } else {
-        setAuthChecking(false);
-      }
+      if (user) router.replace("/dashboard");
+      else setAuthChecking(false);
     });
     return () => unsub();
   }, [router]);
 
-  function friendlyError(code) {
-    switch (code) {
-      case "auth/user-not-found": return "No account found with this email.";
-      case "auth/wrong-password": return "Incorrect password. Try again.";
-      case "auth/invalid-credential": return "Invalid email or password.";
-      case "auth/too-many-requests": return "Too many attempts. Try again later.";
-      case "auth/invalid-email": return "Please enter a valid email address.";
-      default: return "Something went wrong. Please try again.";
-    }
-  }
-
   async function createUserAPI(user) {
     const token = await user.getIdToken();
-    await fetch("/api/create-user", {
+    const res = await fetch("/api/create-user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
     });
-  }
-
-  async function handleEmailLogin(e) {
-    e.preventDefault();
-    setError("");
-
-    if (!email || !password) { setError("Please fill in all fields."); return; }
-
-    // ── CAPTCHA gate ──────────────────────────────────────────────────────────
-    if (!captchaToken) {
-      setError("Please complete the CAPTCHA verification.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // 1️⃣  Verify CAPTCHA token server-side first
-      const captchaRes = await fetch("/api/verify-captcha", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: captchaToken }),
-      });
-      const captchaData = await captchaRes.json();
-
-      if (!captchaData.success) {
-        setError("CAPTCHA verification failed. Please try again.");
-        recaptchaRef.current?.reset();
-        setCaptchaToken(null);
-        setLoading(false);
-        return;
-      }
-
-      // 2️⃣  CAPTCHA passed — proceed with Firebase sign-in
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      await createUserAPI(cred.user);
-      router.push("/dashboard");
-    } catch (err) {
-      setError(friendlyError(err.code));
-      // Reset CAPTCHA so user can re-verify after an error
-      recaptchaRef.current?.reset();
-      setCaptchaToken(null);
-    } finally {
-      setLoading(false);
-    }
+    return res;
   }
 
   async function handleGoogle() {
@@ -298,14 +184,13 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err) {
       if (err.code !== "auth/popup-closed-by-user") {
-        setError(friendlyError(err.code));
+        setError("Something went wrong. Please try again.");
       }
     } finally {
       setGoogleLoading(false);
     }
   }
 
-  // Render nothing while Firebase resolves auth state — prevents flash of login form
   if (authChecking) return null;
 
   return (
@@ -313,6 +198,7 @@ export default function LoginPage() {
       <style>{styles}</style>
       <div className="auth-root">
 
+        {/* Left panel */}
         <div className="auth-left">
           <div className="auth-brand">
             <div className="auth-brand-icon">JM</div>
@@ -322,7 +208,7 @@ export default function LoginPage() {
             <h2 className="auth-left-tagline">
               Your <em>smartest</em> guide to JEE counselling.
             </h2>
-            <p className="auth-left-sub">Find the right college for You.</p>
+            <p className="auth-left-sub">Find the right college for you.</p>
             <div className="auth-left-pills">
               <span className="auth-pill">JOSAA 2026</span>
               <span className="auth-pill">CSAB</span>
@@ -333,6 +219,7 @@ export default function LoginPage() {
           <p className="auth-left-footer">© 2025 JOSAA Master. All rights reserved.</p>
         </div>
 
+        {/* Right panel */}
         <div className="auth-right">
           <div className="auth-card">
             <h1 className="auth-card-title">Welcome back.</h1>
@@ -340,9 +227,9 @@ export default function LoginPage() {
               Don't have an account? <a href="/signup">Sign up free</a>
             </p>
 
-            <button className="google-btn" onClick={handleGoogle} disabled={googleLoading || loading}>
+            <button className="google-btn" onClick={handleGoogle} disabled={googleLoading}>
               {googleLoading ? (
-                <div className="spinner" style={{ borderColor: "rgba(0,0,0,0.2)", borderTopColor: "#0F172A" }} />
+                <div className="spinner" />
               ) : (
                 <svg className="google-icon" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -354,51 +241,7 @@ export default function LoginPage() {
               {googleLoading ? "Signing in…" : "Continue with Google"}
             </button>
 
-            <div className="divider">
-              <div className="divider-line" />
-              <span className="divider-text">or with email</span>
-              <div className="divider-line" />
-            </div>
-
-            <form className="auth-form" onSubmit={handleEmailLogin}>
-              <div className="form-field">
-                <label className="form-label">Email</label>
-                <input
-                  className={`form-input${error ? " error" : ""}`}
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); setError(""); }}
-                  autoComplete="email"
-                />
-              </div>
-              <div className="form-field">
-                <label className="form-label">Password</label>
-                <input
-                  className={`form-input${error ? " error" : ""}`}
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => { setPassword(e.target.value); setError(""); }}
-                  autoComplete="current-password"
-                />
-              </div>
-
-              {/* ── reCAPTCHA v2 checkbox ── */}
-              <div className="recaptcha-wrap">
-                <ReCAPTCHA
-                  ref={recaptchaRef}
-                  sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-                  onChange={(token) => { setCaptchaToken(token); setError(""); }}
-                  onExpired={() => setCaptchaToken(null)}
-                />
-              </div>
-
-              {error && <p className="error-msg">{error}</p>}
-              <button className="submit-btn" type="submit" disabled={loading || googleLoading}>
-                {loading ? <><div className="spinner" /> Signing in…</> : "Sign in →"}
-              </button>
-            </form>
+            {error && <p className="error-msg">{error}</p>}
           </div>
         </div>
 
