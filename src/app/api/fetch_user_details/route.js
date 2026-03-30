@@ -95,6 +95,7 @@ export async function POST(request) {
 
         josaa_credits: item.josaa_credits?.BOOL ?? false,
         csab_credits: item.csab_credits?.BOOL ?? false,
+        test_credits: item.test_credits?.BOOL ?? true,
 
         test_mains_crl: parseInt(item.test_mains_crl?.N ?? "0", 10),
         crl_mains_rank: parseInt(item.crl_mains_rank?.N ?? "0", 10),

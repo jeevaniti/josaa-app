@@ -156,6 +156,7 @@ export async function POST(req) {
                     user_email: { S: user_email },
                     josaa_credits: { BOOL: false },
                     csab_credits: { BOOL: false },
+                    test_credits: { BOOL: true },
                     home_state: { S: "" },
                     gender: { S: "" },
                     category: { S: "" },

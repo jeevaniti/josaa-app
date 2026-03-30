@@ -83,8 +83,9 @@ export async function POST(request) {
     // 7. Check credit/subscription for this type
     const josaa_credit = existingItem.josaa_credits?.BOOL ?? false;
     const csab_credit = existingItem.csab_credits?.BOOL ?? false;
+    const test_credit = existingItem.test_credits?.BOOL ?? true;
 
-    if (type === "TEST" && !josaa_credit && !csab_credit) return Response.json({ error: "JOSAA or CSAB subscription required to set TEST rank." }, { status: 403 });
+    if (type === "TEST" && !test_credit) return Response.json({ error: "JOSAA or CSAB subscription required to set TEST rank." }, { status: 403 });
     if (type === "MAINS" && !josaa_credit && !csab_credit) return Response.json({ error: "JOSAA or CSAB subscription required to set MAINS ranks." }, { status: 403 });
     if (type === "ADVANCED" && !josaa_credit) return Response.json({ error: "JOSAA subscription required to set ADVANCED ranks." }, { status: 403 });
 
@@ -152,12 +153,12 @@ export async function POST(request) {
             }
             if (body.crl_adv_rank !== undefined) {
                 const v = validRank(body.crl_adv_rank);
-                if (v === null) return Response.json({ error: "crl_adv_rank must be between 1 and 3,00,000." }, { status: 400 });
+                if (v === null) return Response.json({ error: "crl_adv_rank must be between 1 and 2,00,000." }, { status: 400 });
                 updateFields.crl_adv_rank = v;
             }
             if (body.category_adv_rank !== undefined) {
                 const v = validRank(body.category_adv_rank);
-                if (v === null) return Response.json({ error: "category_adv_rank must be between 1 and 3,00,000." }, { status: 400 });
+                if (v === null) return Response.json({ error: "category_adv_rank must be between 1 and 2,00,000." }, { status: 400 });
                 updateFields.category_adv_rank = v;
             }
         }

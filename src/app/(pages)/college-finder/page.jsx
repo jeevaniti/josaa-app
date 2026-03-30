@@ -1942,6 +1942,50 @@ const styles = `
   .fc-round-btn.active     { background: #0f172a; color: white; }
   .fc-round-btn:hover:not(.active) { background: #f1f5f9; color: #334155; }
 
+  .fc-round-btn.locked {
+    color: #cbd5e1;
+    cursor: pointer;
+    background: #f8fafc;
+    position: relative;
+  }
+  .fc-round-btn.locked:hover { background: #f1f5f9; color: #94a3b8; }
+  .fc-round-btn.locked .fc-round-lock {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    opacity: 0.5;
+    vertical-align: middle;
+  }
+
+  /* Locked filter group overlay */
+  .fc-filter-group-locked {
+    position: relative;
+    user-select: none;
+  }
+  .fc-filter-group-locked-overlay {
+    position: absolute;
+    inset: -8px;
+    background: rgba(248,250,252,0.85);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+    border: 1.5px dashed #e2e8f0;
+    transition: background 0.15s ease;
+  }
+  .fc-filter-group-locked-overlay:hover {
+    background: rgba(241,245,249,0.92);
+    color: #64748b;
+  }
+
   .fc-btn-generate-inline {
     display: flex;
     align-items: center;
@@ -2258,7 +2302,7 @@ const styles = `
   }
 
   .fc-popup-title {
-    font-family: 'Instrument Serif', Georgia, serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 20px;
     font-weight: 400;
     color: #0f172a;
@@ -2489,14 +2533,17 @@ export default function FindCollegePage() {
   // ── Subscription flags ────────────────────────────────────────────────────
   const josaaUnlocked = userDetails?.josaa_credits === true;
   const csabUnlocked = userDetails?.csab_credits === true;
+  // TEST is unlocked when EITHER josaa OR csab credit is active
   const testUnlocked = josaaUnlocked || csabUnlocked;
+  // Full filters/advanced rounds in TEST mode require any credit
+  const testFiltersUnlocked = josaaUnlocked || csabUnlocked;
 
   // ── Mode switch: reset filters + results ─────────────────────────────────
   function handleModeClick(m) {
     const isLocked =
-      (m === "TEST" && !testUnlocked) ||
       (m === "JOSAA" && !josaaUnlocked) ||
       (m === "CSAB" && !csabUnlocked);
+    // TEST is always accessible — restrictions are on rounds/filters inside
 
     if (isLocked) { setPaywallFor(m); return; }
 
@@ -2616,7 +2663,7 @@ export default function FindCollegePage() {
 
   // ── canGenerate ───────────────────────────────────────────────────────────
   const modeUnlocked =
-    (mode === "TEST" && testUnlocked) ||
+    mode === "TEST" ||   // TEST rank is unlocked for everyone
     (mode === "JOSAA" && josaaUnlocked) ||
     (mode === "CSAB" && csabUnlocked);
 
@@ -2678,7 +2725,7 @@ export default function FindCollegePage() {
           {/* ── Counselling type ── */}
           <div className="fc-mode-row">
             {[
-              { key: "TEST", locked: !testUnlocked },
+              { key: "TEST", locked: false },
               { key: "JOSAA", locked: !josaaUnlocked },
               { key: "CSAB", locked: !csabUnlocked },
             ].map(({ key, locked }) => (
@@ -2784,7 +2831,22 @@ export default function FindCollegePage() {
                 <div className="fc-filter-groups">
 
                   {/* College type */}
-                  <div>
+                  <div className={mode === "TEST" && !testFiltersUnlocked ? "fc-filter-group-locked" : ""}>
+                    {mode === "TEST" && !testFiltersUnlocked && (
+                      <div
+                        className="fc-filter-group-locked-overlay"
+                        onClick={() => setPaywallFor("JOSAA and CSAB Counselling")}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={e => e.key === "Enter" && setPaywallFor("JOSAA and CSAB Counselling")}
+                      >
+                        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                          <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
+                        </svg>
+                        Locked
+                      </div>
+                    )}
                     <p className="fc-filter-group-label">College Type</p>
                     <div className="fc-checkbox-list">
                       {COLLEGE_TYPES_PER_MODE[mode].map(label => (
@@ -2793,6 +2855,7 @@ export default function FindCollegePage() {
                             type="checkbox"
                             checked={collegeTypes[label] ?? false}
                             onChange={() => toggleFilter(setCollegeTypes, label)}
+                            disabled={mode === "TEST" && !testFiltersUnlocked}
                           />
                           {label}
                         </label>
@@ -2818,7 +2881,22 @@ export default function FindCollegePage() {
                   </div>
 
                   {/* Branch */}
-                  <div>
+                  <div className={mode === "TEST" && !testFiltersUnlocked ? "fc-filter-group-locked" : ""}>
+                    {mode === "TEST" && !testFiltersUnlocked && (
+                      <div
+                        className="fc-filter-group-locked-overlay"
+                        onClick={() => setPaywallFor("JOSAA and CSAB Counselling")}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={e => e.key === "Enter" && setPaywallFor("JOSAA and CSAB Counselling")}
+                      >
+                        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                          <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
+                        </svg>
+                        Locked
+                      </div>
+                    )}
                     <p className="fc-filter-group-label">Branch</p>
                     <div className="fc-checkbox-list">
                       {BRANCH_OPTIONS.map(label => (
@@ -2827,6 +2905,7 @@ export default function FindCollegePage() {
                             type="checkbox"
                             checked={branches[label] ?? false}
                             onChange={() => toggleFilter(setBranches, label)}
+                            disabled={mode === "TEST" && !testFiltersUnlocked}
                           />
                           {label}
                         </label>
@@ -2853,17 +2932,31 @@ export default function FindCollegePage() {
                 <div className="fc-round-bar">
                   <div className="fc-round-bar-left">
                     <div className="fc-round-btns">
-                      {roundOptions.map(r => (
-                        <button
-                          key={r}
-                          className={`fc-round-btn${selectedRound === r ? " active" : ""}`}
-                          onClick={() => setSelectedRound(r)}
-                          title={`Round ${r}`}
-                        >
-                          <span className="round-full">Round {r}</span>
-                          <span className="round-short">R{r}</span>
-                        </button>
-                      ))}
+                      {roundOptions.map(r => {
+                        const isRoundLocked = mode === "TEST" && r > 1 && !testFiltersUnlocked;
+                        return (
+                          <button
+                            key={r}
+                            className={`fc-round-btn${selectedRound === r ? " active" : ""}${isRoundLocked ? " locked" : ""}`}
+                            onClick={() => {
+                              if (isRoundLocked) { setPaywallFor("JOSAA and CSAB Counselling"); return; }
+                              setSelectedRound(r);
+                            }}
+                            title={isRoundLocked ? "Requires JOSAA or CSAB subscription" : `Round ${r}`}
+                          >
+                            <span className="round-full">Round {r}</span>
+                            <span className="round-short">R{r}</span>
+                            {isRoundLocked && (
+                              <span className="fc-round-lock">
+                                <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                  <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
+                                </svg>
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                   <button
@@ -3051,8 +3144,10 @@ export default function FindCollegePage() {
               </div>
               <p className="fc-popup-title">Unlock {paywallFor}</p>
               <p className="fc-popup-sub">
-                Access to <strong>{paywallFor}</strong> counselling predictions requires an active subscription.
-                Upgrade to get full college predictor access.
+                {paywallFor === "JOSAA and CSAB Counselling"
+                  ? <>Access to <strong>JOSAA and CSAB Counselling</strong> predictions requires an active subscription. Upgrade to get full college predictor access.</>
+                  : <>Access to <strong>{paywallFor}</strong> counselling predictions requires an active subscription. Upgrade to get full college predictor access.</>
+                }
               </p>
               <div className="fc-popup-actions">
                 <button className="fc-popup-buy" onClick={() => { window.location.href = "/payments"; }}>

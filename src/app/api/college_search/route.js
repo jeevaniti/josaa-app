@@ -526,6 +526,7 @@ async function fetchUserFromDynamo(fb_uid) {
     return {
         josaa_credits: item.josaa_credits?.BOOL ?? false,
         csab_credits: item.csab_credits?.BOOL ?? false,
+        test_credits: item.test_credits?.BOOL ?? true,
         home_state: item.home_state?.S ?? "",
         gender: item.gender?.S ?? "",
         category: item.category?.S ?? "",
@@ -591,8 +592,20 @@ export async function POST(request) {
             return NextResponse.json({ error: "JOSAA subscription required" }, { status: 403 });
         if (mode === "CSAB" && !user.csab_credits)
             return NextResponse.json({ error: "CSAB subscription required" }, { status: 403 });
-        if (mode === "TEST" && !user.josaa_credits && !user.csab_credits)
-            return NextResponse.json({ error: "An active subscription (JOSAA or CSAB) is required for TEST mode" }, { status: 400 });
+        // TEST mode: rank is open to all, but rounds 2-6 and filters require josaa OR csab credit
+        const testAdvancedUnlocked = user.josaa_credits || user.csab_credits;
+        if (mode === "TEST") {
+            // Rounds 2-6 are locked without josaa or csab credit
+            if (roundInt > 1 && !testAdvancedUnlocked)
+                return NextResponse.json({ error: "Rounds 2–6 in TEST mode require an active JOSAA or CSAB subscription" }, { status: 403 });
+            // Branch and college_type filters are locked without josaa or csab credit
+            if (!testAdvancedUnlocked) {
+                if (body.branch && Array.isArray(body.branch) && body.branch.length > 0)
+                    return NextResponse.json({ error: "Branch filters in TEST mode require an active JOSAA or CSAB subscription" }, { status: 403 });
+                if (body.college_type && Array.isArray(body.college_type) && body.college_type.length > 0)
+                    return NextResponse.json({ error: "College type filters in TEST mode require an active JOSAA or CSAB subscription" }, { status: 403 });
+            }
+        }
 
         // 9. Map DynamoDB gender → MongoDB gender values
         const dbGenders = mapGenderToDbValues(user.gender);

@@ -334,6 +334,117 @@ const styles = `
     opacity: 0.6;
   }
 
+  .sr-set-btn.locked {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 1.5px dashed #cbd5e1;
+    cursor: pointer;
+    gap: 6px;
+  }
+
+  .sr-set-btn.locked:hover {
+    background: #e8eef6;
+    color: #64748b;
+    border-color: #94a3b8;
+    transform: translateY(-1px);
+  }
+
+  .sr-set-btn.locked .sr-lock-icon {
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.7;
+  }
+
+  /* Paywall popup — reused from college_finder style */
+  .sr-paywall-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.5);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(2px);
+    animation: fadeIn 0.18s ease-out both;
+  }
+
+  .sr-paywall-popup {
+    background: white;
+    border-radius: 12px;
+    padding: 32px 28px;
+    max-width: 380px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    text-align: center;
+    animation: slideUp 0.2s ease-out both;
+    border: 1px solid #e2e8f0;
+  }
+
+  .sr-paywall-icon {
+    width: 48px;
+    height: 48px;
+    background: #fef3c7;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    color: #d97706;
+  }
+
+  .sr-paywall-title {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 8px;
+  }
+
+  .sr-paywall-sub {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 400;
+    margin-bottom: 22px;
+    line-height: 1.6;
+  }
+
+  .sr-paywall-actions { display: flex; flex-direction: column; gap: 8px; }
+
+  .sr-paywall-buy {
+    background: #0f172a;
+    color: white;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s ease;
+  }
+
+  .sr-paywall-buy:hover { background: #1e293b; }
+
+  .sr-paywall-cancel {
+    background: none;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.12s ease;
+  }
+
+  .sr-paywall-cancel:hover { background: #f8fafc; }
+
+  @media (max-width: 768px) {
+    .sr-paywall-popup { padding: 24px 18px; }
+  }
+
   .sr-set-btn.already-set {
     background: #f0fdf4;
     color: #15803d;
@@ -901,6 +1012,9 @@ export default function SetRankPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
 
+  // Paywall popup state
+  const [paywallFor, setPaywallFor] = useState(null);
+
   // Dialog state
   const [dialog, setDialog] = useState(null);
   const [dialogSubmitting, setDialogSubmitting] = useState(false);
@@ -972,6 +1086,8 @@ export default function SetRankPage() {
   // ── Parsed values ──
   const josaa_credit = userDetails?.josaa_credits ?? false;
   const csab_credit = userDetails?.csab_credits ?? false;
+  const test_credit = userDetails?.test_credits ?? true;
+
   const test_mains_crl = userDetails?.test_mains_crl ?? 0;
   const crl_mains_rank = userDetails?.crl_mains_rank ?? 0;
   const category_mains_rank = userDetails?.category_mains_rank ?? 0;
@@ -1337,6 +1453,33 @@ export default function SetRankPage() {
         </Link>
       </div> */}
 
+      {/* ── Paywall popup ── */}
+      {paywallFor && (
+        <div className="sr-paywall-overlay" onClick={() => setPaywallFor(null)}>
+          <div className="sr-paywall-popup" onClick={e => e.stopPropagation()}>
+            {/* <div className="sr-paywall-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
+              </svg>
+            </div> */}
+            <p className="sr-paywall-title">Unlock {paywallFor}</p>
+            <p className="sr-paywall-sub">
+              Access to <strong>{paywallFor}</strong> requires an active subscription.
+              Upgrade to unlock rank entry and full college predictor access.
+            </p>
+            <div className="sr-paywall-actions">
+              <button className="sr-paywall-buy" onClick={() => { window.location.href = "/payments"; }}>
+                View Plans &amp; Pricing
+              </button>
+              <button className="sr-paywall-cancel" onClick={() => setPaywallFor(null)}>
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="sr-body">
         <h1 className="sr-title">Set Rank</h1>
 
@@ -1517,7 +1660,7 @@ export default function SetRankPage() {
           {/* ── Section A: Test Rank ── */}
           <div className="sr-section-btn-row">
             {(() => {
-              const active = josaa_credit || csab_credit;
+              const active = test_credit;
               const alreadySet = test_mains_crl !== 0;
               return (
                 <button
@@ -1556,14 +1699,38 @@ export default function SetRankPage() {
             {(() => {
               const active = josaa_credit || csab_credit;
               const allSet = crl_mains_rank !== 0 && (isGeneral() || category_mains_rank !== 0);
+              if (allSet) {
+                return (
+                  <button className="sr-set-btn already-set" disabled>
+                    <PencilIcon />
+                    Set ✓
+                  </button>
+                );
+              }
+              if (!active) {
+                return (
+                  <button
+                    className="sr-set-btn locked"
+                    onClick={() => setPaywallFor("JOSAA and CSAB Counselling")}
+                  >
+                    <span className="sr-lock-icon">
+                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
+                      </svg>
+                    </span>
+                    Locked
+                  </button>
+                );
+              }
               return (
                 <button
-                  className={`sr-set-btn ${allSet ? "already-set" : active ? "active" : "inactive"}`}
-                  disabled={allSet || !active || loading}
+                  className="sr-set-btn active"
+                  disabled={loading}
                   onClick={() => openDialog("section2")}
                 >
                   <PencilIcon />
-                  {allSet ? "Set ✓" : "Set"}
+                  Set
                 </button>
               );
             })()}
@@ -1602,14 +1769,38 @@ export default function SetRankPage() {
             {(() => {
               const active = josaa_credit;
               const allSet = crl_adv_rank !== 0 && (isGeneral() || category_adv_rank !== 0);
+              if (allSet) {
+                return (
+                  <button className="sr-set-btn already-set" disabled>
+                    <PencilIcon />
+                    Set ✓
+                  </button>
+                );
+              }
+              if (!active) {
+                return (
+                  <button
+                    className="sr-set-btn locked"
+                    onClick={() => setPaywallFor("JOSAA Counselling")}
+                  >
+                    <span className="sr-lock-icon">
+                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
+                      </svg>
+                    </span>
+                    Locked
+                  </button>
+                );
+              }
               return (
                 <button
-                  className={`sr-set-btn ${allSet ? "already-set" : active ? "active" : "inactive"}`}
-                  disabled={allSet || !active || loading}
+                  className="sr-set-btn active"
+                  disabled={loading}
                   onClick={() => openDialog("section3")}
                 >
                   <PencilIcon />
-                  {allSet ? "Set ✓" : "Set"}
+                  Set
                 </button>
               );
             })()}
