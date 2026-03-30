@@ -403,7 +403,7 @@ const styles = `
 
   .sr-paywall-sub {
     font-size: 13px;
-    color: #64748b;
+color: #989ba0ff;
     font-weight: 400;
     margin-bottom: 22px;
     line-height: 1.6;

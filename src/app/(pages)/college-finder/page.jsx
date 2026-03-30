@@ -2302,16 +2302,16 @@ const styles = `
   }
 
   .fc-popup-title {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 20px;
-    font-weight: 400;
+    font-weight: 600;
     color: #0f172a;
     margin-bottom: 8px;
   }
 
   .fc-popup-sub {
     font-size: 13px;
-    color: #64748b;
+    color: #989ba0ff;
     font-weight: 400;
     margin-bottom: 22px;
     line-height: 1.6;
@@ -3136,12 +3136,12 @@ export default function FindCollegePage() {
         {paywallFor && (
           <div className="fc-overlay" onClick={() => setPaywallFor(null)}>
             <div className="fc-popup" onClick={e => e.stopPropagation()}>
-              <div className="fc-popup-icon">
+              {/* <div className="fc-popup-icon">
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
                 </svg>
-              </div>
+              </div> */}
               <p className="fc-popup-title">Unlock {paywallFor}</p>
               <p className="fc-popup-sub">
                 {paywallFor === "JOSAA and CSAB Counselling"
