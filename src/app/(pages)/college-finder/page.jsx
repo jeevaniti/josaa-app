@@ -1526,8 +1526,7 @@ const BRANCH_MAP = {
   EEE: 3009,
   Metallurgy: 3010,
   Mechanical: 3011,
-  "Bio Technology": 3012,
-  Others: 3013,
+  "Bio Technology": 3012
 };
 
 const VALID_MODE_IDS = ["TEST", "JOSAA", "CSAB"];
