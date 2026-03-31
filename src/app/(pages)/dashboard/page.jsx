@@ -66,7 +66,62 @@ const styles = `
     line-height: 1.5;
   }
 
-  /* ── Stats Grid ── */
+  /* ── Quick Actions ── */
+  .quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+    margin-bottom: 24px;
+  }
+
+  .quick-action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--color-blue);
+    color: #fff;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .quick-action-link:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+  }
+
+  .quick-action-link:active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .quick-action-link svg {
+    flex-shrink: 0;
+  }
+
+  .quick-action-link--outline {
+    background: transparent;
+    color: var(--color-blue);
+    border: 1.5px solid var(--color-blue);
+  }
+
+  .quick-action-link--outline:hover {
+    background: #eff6ff;
+    opacity: 1;
+  }
+
+  @media (max-width: 400px) {
+    .quick-action-link {
+      width: 100%;
+      justify-content: center;
+    }
+  }
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -371,9 +426,23 @@ export default function DashboardPage() {
           <p className="dashboard-subtitle">
             {user?.email ? `Signed in as ${user.email}` : ""}
           </p>
+          <div className="quick-actions">
+            <a href="/set-user-rank" className="quick-action-link">
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Set Your Rank
+            </a>
+            <a href="/college-finder" className="quick-action-link quick-action-link--outline">
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              Find Colleges
+            </a>
+          </div>
         </div>
 
-        <div className="info-banner">
+        {/* <div className="info-banner">
           <div className="info-banner-icon">
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" />
@@ -383,23 +452,20 @@ export default function DashboardPage() {
           <div>
             <p className="info-banner-title">JOSAA 2026 Counselling is Live</p>
           </div>
-        </div>
+        </div> */}
 
         {/* Stats */}
         <div className="stats-grid">
           <div className="stat-card">
             <p className="stat-label">IITs</p>
-            <div className="stat-divider" />
             <p className="stat-value blue">23</p>
           </div>
           <div className="stat-card">
             <p className="stat-label">NITs</p>
-            <div className="stat-divider" />
             <p className="stat-value green">31</p>
           </div>
           <div className="stat-card">
             <p className="stat-label">IIITs & Others</p>
-            <div className="stat-divider" />
             <p className="stat-value amber">45</p>
           </div>
         </div>

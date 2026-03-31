@@ -175,7 +175,7 @@ export default function SignupPage() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) router.replace("/set-user-rank");
+      if (user) router.replace("/dashboard");
       else setAuthChecking(false);
     });
     return () => unsub();
@@ -197,7 +197,7 @@ export default function SignupPage() {
     try {
       const cred = await signInWithPopup(auth, googleProvider);
       await createUserAPI(cred.user);
-      router.push("/set-user-rank");
+      router.push("/dashboard");
     } catch (err) {
       if (err.code !== "auth/popup-closed-by-user") {
         setError("Something went wrong. Please try again.");
