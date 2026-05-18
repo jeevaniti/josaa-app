@@ -4362,7 +4362,7 @@ export default function FindCollegePage() {
     ],
     // CSAB DB stores cutoffs as CRL ranks — category rank is not used for comparison
     CSAB: [
-      { label: "Mains CRL Rank (used for all categories)", value: d.crl_mains_rank },
+      { label: "Mains CRL Rank", value: d.crl_mains_rank },
     ],
   };
 
