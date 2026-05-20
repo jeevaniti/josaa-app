@@ -3573,7 +3573,6 @@ const styles = `
   .fc-round-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     padding: 12px 20px;
     border-bottom: 1px solid #f1f5f9;
@@ -3623,7 +3622,19 @@ const styles = `
 
   .fc-round-btn:last-child { border-right: none; }
   .fc-round-btn.active     { background: #0f172a; color: white; }
-  .fc-round-btn:hover:not(.active) { background: #f1f5f9; color: #334155; }
+  .fc-round-btn:hover:not(.active):not(.cooling) { background: #f1f5f9; color: #334155; }
+
+  .fc-round-btn.cooling {
+    pointer-events: none;
+    cursor: default;
+    color: #cbd5e1;
+    animation: fcRoundUnlock 5s ease-out forwards;
+  }
+
+  @keyframes fcRoundUnlock {
+    from { background: #e2e8f0; }
+    to   { background: transparent; }
+  }
 
   .fc-round-btn.locked {
     color: #cbd5e1;
@@ -4188,6 +4199,11 @@ export default function FindCollegePage() {
   const [generateCooldown, setGenerateCooldown] = useState(0);
   const cooldownRef = useRef(null);
 
+  // ── Round switch cooldown (5s block other rounds after generate/switch) ─
+  const [roundsOnCooldown, setRoundsOnCooldown] = useState(() => new Set());
+  const roundCooldownRef = useRef(null);
+  const ROUND_COOLDOWN_MS = 5000;
+
   // ── Fetch user profile on mount ───────────────────────────────────────────
   useEffect(() => {
     async function fetchDetails() {
@@ -4213,6 +4229,13 @@ export default function FindCollegePage() {
     fetchDetails();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+      if (roundCooldownRef.current) clearTimeout(roundCooldownRef.current);
+    };
+  }, []);
+
   // ── Subscription flags ────────────────────────────────────────────────────
   const josaaUnlocked = userDetails?.josaa_credits === true;
   const csabUnlocked = userDetails?.csab_credits === true;
@@ -4233,6 +4256,11 @@ export default function FindCollegePage() {
     setMode(m);
     setCollegeTypes(buildCheckboxState(COLLEGE_TYPES_PER_MODE[m]));
     setSelectedRound(1);
+    setRoundsOnCooldown(new Set());
+    if (roundCooldownRef.current) {
+      clearTimeout(roundCooldownRef.current);
+      roundCooldownRef.current = null;
+    }
     setResults(null);
     setApiError(null);
     setExpanded({});
@@ -4325,13 +4353,45 @@ export default function FindCollegePage() {
     }, 1000);
   }
 
-  // ── Generate: always starts from page 1 ──────────────────────────────────
+  // ── Round cooldown: block all rounds except the active one ───────────────
+  function startRoundCooldown(exceptRound) {
+    const max = ROUND_LIMITS[mode].max;
+    const blocked = new Set();
+    for (let i = 1; i <= max; i++) {
+      if (i !== exceptRound) blocked.add(i);
+    }
+    setRoundsOnCooldown(blocked);
+    if (roundCooldownRef.current) clearTimeout(roundCooldownRef.current);
+    roundCooldownRef.current = setTimeout(() => {
+      setRoundsOnCooldown(new Set());
+      roundCooldownRef.current = null;
+    }, ROUND_COOLDOWN_MS);
+  }
+
+  // ── Generate: always starts from page 1, round 1 ─────────────────────────
   function handleGenerate() {
     startCooldown();
+    setSelectedRound(1);
+    startRoundCooldown(1);
     setResults(null);
     setPage(1);
     setTotalPages(1);
     setTotalCount(0);
+    fetchPage(1);
+  }
+
+  // ── Round switch: fetch that round, cooldown the rest ────────────────────
+  function handleRoundClick(r) {
+    if (mode === "TEST" && r > 1 && !testFiltersUnlocked) {
+      setPaywallFor("JOSAA and CSAB Counselling");
+      return;
+    }
+    if (roundsOnCooldown.has(r)) return;
+    if (r === selectedRound) return;
+
+    setSelectedRound(r);
+    startRoundCooldown(r);
+    setPage(1);
     fetchPage(1);
   }
 
@@ -4610,22 +4670,20 @@ export default function FindCollegePage() {
                 )}
               </div>
 
-              {/* Round selector + inline generate */}
-              {results && (
+              {/* Round selector */}
+              {(results !== null || loading) && (
                 <div className="fc-round-bar">
                   <div className="fc-round-bar-left">
                     <div className="fc-round-btns">
                       {roundOptions.map(r => {
                         const isRoundLocked = mode === "TEST" && r > 1 && !testFiltersUnlocked;
+                        const isCooling = roundsOnCooldown.has(r);
                         return (
                           <button
                             key={r}
-                            className={`fc-round-btn${selectedRound === r ? " active" : ""}${isRoundLocked ? " locked" : ""}`}
-                            onClick={() => {
-                              if (isRoundLocked) { setPaywallFor("JOSAA and CSAB Counselling"); return; }
-                              setSelectedRound(r);
-                            }}
-                            title={isRoundLocked ? "Requires JOSAA or CSAB subscription" : `Round ${r}`}
+                            className={`fc-round-btn${selectedRound === r ? " active" : ""}${isRoundLocked ? " locked" : ""}${isCooling ? " cooling" : ""}`}
+                            onClick={() => handleRoundClick(r)}
+                            title={isRoundLocked ? "Requires JOSAA or CSAB subscription" : isCooling ? "Please wait" : `Round ${r}`}
                           >
                             <span className="round-full">Round {r}</span>
                             <span className="round-short">R{r}</span>
@@ -4642,24 +4700,6 @@ export default function FindCollegePage() {
                       })}
                     </div>
                   </div>
-                  <button
-                    className="fc-btn-generate-inline"
-                    onClick={handleGenerate}
-                    disabled={loading || !canGenerate || generateCooldown > 0}
-                  >
-                    {loading ? (
-                      <><div className="fc-spinner" style={{ width: 13, height: 13 }} /> Searching...</>
-                    ) : generateCooldown > 0 ? (
-                      <>{generateCooldown}s</>
-                    ) : (
-                      <>
-                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                          <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
-                        </svg>
-                        Generate
-                      </>
-                    )}
-                  </button>
                 </div>
               )}
 
